@@ -1,0 +1,233 @@
+import apiClient from './client'
+import type { Product, Category } from '@/types'
+
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === 'true'
+
+// Helper function to convert snake_case to camelCase for product data
+const normalizeProduct = (data: any): Product => {
+  return {
+    id: data.id,
+    categoryId: data.category_id || data.categoryId,
+    categoryName: data.category_name || data.categoryName || '',
+    name: data.name,
+    description: data.description || '',
+    image: data.image_url || data.image,
+    hpp: parseFloat(data.hpp) || 0,
+    price: parseFloat(data.price) || 0,
+    memberPrice: data.member_price ? parseFloat(data.member_price) : undefined,
+    stock: parseInt(data.stock) || 0,
+    status: data.status || 'active',
+    addOns: data.addOns || data.add_ons || [],
+    createdAt: new Date(data.created_at || data.createdAt),
+    updatedAt: new Date(data.updated_at || data.updatedAt),
+  }
+}
+
+// Helper function to normalize categories
+const normalizeCategory = (data: any): Category => {
+  return {
+    id: data.id,
+    name: data.name,
+    description: data.description || '',
+    sortOrder: data.sort_order || data.sortOrder || 0,
+    createdAt: new Date(data.created_at || data.createdAt),
+    updatedAt: new Date(data.updated_at || data.updatedAt),
+  }
+}
+
+export const productApi = {
+  async getAllProducts(): Promise<Product[]> {
+    try {
+      console.log('[Product API] Fetching products from API...')
+      const response = await apiClient.get<{ data: { data: any[] } }>('/products')
+
+      // Extract and normalize the products array
+      const rawProducts = response.data.data.data
+      const products = rawProducts.map(normalizeProduct)
+
+      console.log('[Product API] Normalized products:', products)
+      return products
+    } catch (error) {
+      console.error('[Product API] Error fetching products:', error)
+      throw error
+    }
+  },
+
+  async getProductById(id: string): Promise<Product> {
+    try {
+      const response = await apiClient.get<{ data: any }>(`/products/${id}`)
+      return normalizeProduct(response.data.data)
+    } catch (error) {
+      console.error('Error fetching product:', error)
+      throw error
+    }
+  },
+
+  async createProduct(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product> {
+    try {
+      const response = await apiClient.post<{ data: any }>('/products', product)
+      return normalizeProduct(response.data.data)
+    } catch (error) {
+      console.error('Error creating product:', error)
+      throw error
+    }
+  },
+
+  async updateProduct(id: string, product: Partial<Product>): Promise<Product> {
+    try {
+      const response = await apiClient.put<{ data: any }>(`/products/${id}`, product)
+      return normalizeProduct(response.data.data)
+    } catch (error) {
+      console.error('Error updating product:', error)
+      throw error
+    }
+  },
+
+  async updateProductStatus(id: string, status: 'active' | 'inactive'): Promise<Product> {
+    if (USE_MOCK) {
+      const product = mockProductsData.find((p: Product) => p.id === id)
+      if (!product) throw new Error('Product not found')
+
+      product.status = status
+      product.updatedAt = new Date()
+      return product
+    }
+
+    try {
+      const response = await apiClient.patch<{ data: any }>(
+        `/products/${id}/status`,
+        { status }
+      )
+      return normalizeProduct(response.data.data)
+    } catch (error) {
+      console.error('Error updating product status:', error)
+      throw error
+    }
+  },
+
+  async deleteProduct(id: string): Promise<void> {
+    if (USE_MOCK) {
+      const index = mockProductsData.findIndex((p: Product) => p.id === id)
+      if (index === -1) throw new Error('Product not found')
+      mockProductsData.splice(index, 1)
+      return
+    }
+
+    try {
+      await apiClient.delete(`/products/${id}`)
+    } catch (error) {
+      console.error('Error deleting product:', error)
+      throw error
+    }
+  },
+
+  async getAllCategories(): Promise<Category[]> {
+    if (USE_MOCK) {
+      console.log('[Product API] Using mock categories')
+      return Promise.resolve(mockCategoriesData)
+    }
+
+    try {
+      console.log('[Product API] Fetching categories from API...')
+      const response = await apiClient.get<{ data: any[] }>('/categories')
+      console.log('[Product API] Raw categories response:', response.data.data)
+
+      // Categories endpoint returns array directly in data - normalize them
+      const rawCategories = response.data.data
+      const categories = rawCategories.map(normalizeCategory)
+
+      console.log('[Product API] Normalized categories:', categories)
+      return categories
+    } catch (error) {
+      console.error('[Product API] Error fetching categories:', error)
+      throw error
+    }
+  },
+
+  async updateProductStock(id: string, quantity: number): Promise<Product> {
+    if (USE_MOCK) {
+      const product = mockProductsData.find((p: Product) => p.id === id)
+      if (!product) throw new Error('Product not found')
+
+      product.stock = Math.max(0, product.stock + quantity)
+      product.updatedAt = new Date()
+      return product
+    }
+
+    try {
+      const response = await apiClient.patch<{ data: any }>(
+        `/products/${id}/stock`,
+        { quantity }
+      )
+      return normalizeProduct(response.data.data)
+    } catch (error) {
+      console.error('Error updating stock:', error)
+      throw error
+    }
+  },
+
+  async createCategory(category: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>): Promise<Category> {
+    if (USE_MOCK) {
+      const newCategory: Category = {
+        ...category,
+        id: `cat-${Date.now()}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      mockCategoriesData.push(newCategory)
+      return newCategory
+    }
+
+    try {
+      console.log('[Product API] Creating category:', category)
+      const response = await apiClient.post<{ data: any }>('/categories', category)
+      console.log('[Product API] Category created:', response.data.data)
+      return normalizeCategory(response.data.data)
+    } catch (error) {
+      console.error('[Product API] Error creating category:', error)
+      throw error
+    }
+  },
+
+  async updateCategory(id: string, category: Partial<Category>): Promise<Category> {
+    if (USE_MOCK) {
+      const index = mockCategoriesData.findIndex((c: Category) => c.id === id)
+      if (index === -1) throw new Error('Category not found')
+
+      mockCategoriesData[index] = {
+        ...mockCategoriesData[index],
+        ...category,
+        updatedAt: new Date(),
+      }
+      return mockCategoriesData[index]
+    }
+
+    try {
+      console.log('[Product API] Updating category:', id)
+      const response = await apiClient.put<{ data: any }>(`/categories/${id}`, category)
+      console.log('[Product API] Category updated:', response.data.data)
+      return normalizeCategory(response.data.data)
+    } catch (error) {
+      console.error('[Product API] Error updating category:', error)
+      throw error
+    }
+  },
+
+  async deleteCategory(id: string): Promise<void> {
+    if (USE_MOCK) {
+      const index = mockCategoriesData.findIndex((c: Category) => c.id === id)
+      if (index === -1) throw new Error('Category not found')
+      mockCategoriesData.splice(index, 1)
+      return
+    }
+
+    try {
+      console.log('[Product API] Deleting category:', id)
+      await apiClient.delete(`/categories/${id}`)
+      console.log('[Product API] Category deleted')
+    } catch (error) {
+      console.error('[Product API] Error deleting category:', error)
+      throw error
+    }
+  },
+}

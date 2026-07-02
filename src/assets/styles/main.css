@@ -1,0 +1,540 @@
+@import './brand.css';
+@import './variables.css';
+@import 'tailwindcss';
+
+/* Safe area background — status bar area on Android edge-to-edge shows body background */
+html {
+  background-color: var(--brand-bg-dark);
+  /* Proportional scaling: all rem-based sizes scale with viewport width.
+     At 1143px+ = 16px (ceiling). At 1006px = 14.1px (88%). At 714px = 10px (min). */
+  font-size: clamp(10px, 1.4vw, 16px);
+  /* Disable grey flash on tap for entire app */
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  background-color: var(--brand-bg-dark);
+  /* Prevent rubber-band scroll on body (outer container handles it per-region) */
+  overscroll-behavior: none;
+}
+
+/* All buttons + links + interactive elements: remove tap flash, enable fast-tap */
+button, a, [role="button"], [role="option"], [role="tab"], [role="menuitem"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* .card hover: only on pointer devices */
+@media (hover: none) {
+  .card:hover {
+    box-shadow: var(--shadow-card);
+  }
+}
+
+/* Custom Component Classes */
+.input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+}
+
+.input:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: var(--color-primary);
+  border-color: transparent;
+}
+
+.label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .form-group {
+    gap: 0.5rem;
+  }
+
+  .label {
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .input {
+    padding: 0.75rem 0.95rem;
+    font-size: 0.95rem;
+    min-height: 44px;
+    border-radius: 10px;
+  }
+
+  .input-wrapper input {
+    padding: 0.75rem 0.95rem;
+    font-size: 0.95rem;
+    min-height: 44px;
+  }
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  transition: all 200ms ease;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  transition: all 200ms ease;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: #e5e7eb;
+  color: #111827;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  transition: all 200ms ease;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #d1d5db;
+}
+
+.btn-danger {
+  background-color: var(--color-danger);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  transition: all 200ms ease;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #dc2626;
+}
+
+.card {
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 200ms ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-warning {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.badge-success {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+
+.badge-danger {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* ── Page Header Utilities ──────────────────────────────────────────────── */
+.page-title {
+  font-family: var(--font-family-body);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.page-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+  margin: 0;
+  line-height: 1.4;
+}
+
+html.dark-mode .page-title {
+  color: var(--color-text-primary);
+}
+
+html.dark-mode .page-subtitle {
+  color: var(--color-text-tertiary);
+}
+
+/* Transition utilities */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 200ms ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-enter-active,
+.slide-leave-active {
+  transition: transform 200ms ease;
+}
+
+.slide-enter-from {
+  transform: translateX(10px);
+}
+
+.slide-leave-to {
+  transform: translateX(-10px);
+}
+
+/* Typography Utilities - Mobile First */
+.text-xs {
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-tight);
+}
+
+.text-sm {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-tight);
+}
+
+.text-base {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+}
+
+.text-lg {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-normal);
+}
+
+.text-xl {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-normal);
+}
+
+.text-2xl {
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-normal);
+}
+
+.text-3xl {
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-relaxed);
+}
+
+/* Text Color Utilities */
+.text-primary {
+  color: var(--color-text-primary);
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-tertiary {
+  color: var(--color-text-tertiary);
+}
+
+.text-disabled {
+  color: var(--color-text-disabled);
+}
+
+/* Font Weight Utilities */
+.font-light {
+  font-weight: 300;
+}
+
+.font-normal {
+  font-weight: 400;
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+/* Heading Styles */
+h1 {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+h2 {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.005em;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+h3 {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+h4 {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+h5 {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+h6 {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+p {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+small {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-tight);
+}
+
+/* Accent text utility — Great Vibes */
+.text-accent {
+  font-family: var(--font-family-accent);
+}
+
+/* Focus States - Keyboard Navigation */
+button,
+a,
+input,
+select,
+textarea {
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Remove default blue outline on iOS */
+button,
+input,
+select,
+textarea {
+  -webkit-appearance: none;
+  -webkit-user-select: text;
+}
+
+/* Focus Ring for Interactive Elements */
+.focus-ring {
+  &:focus-visible {
+    box-shadow: 0 0 0 3px rgba(123, 47, 190, 0.2);
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Active State Utilities */
+.active {
+  &:not(.disabled) {
+    opacity: 1;
+    transform: scale(0.98);
+  }
+}
+
+/* Disabled State */
+.disabled,
+[disabled],
+:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Hover States - Only on devices that support hover */
+@media (hover: hover) {
+  button:not(:disabled),
+  a:not(.disabled) {
+    &:hover {
+      transition: all var(--transition-duration-short) var(--transition-standard);
+    }
+  }
+}
+
+/* Link Styling */
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  cursor: pointer;
+  font-weight: 500;
+  border-bottom: 1px solid transparent;
+  transition: all var(--transition-duration-short) var(--transition-standard);
+
+  @media (hover: hover) {
+    &:hover {
+      color: var(--color-primary-dark);
+      border-bottom-color: var(--color-primary);
+      text-decoration: none;
+    }
+  }
+
+  &:active {
+    color: var(--color-primary-700);
+    opacity: 0.9;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  &.link-secondary {
+    color: var(--color-text-secondary);
+
+    @media (hover: hover) {
+      &:hover {
+        color: var(--color-text-primary);
+        border-bottom-color: var(--color-text-secondary);
+      }
+    }
+  }
+
+  &.link-danger {
+    color: var(--color-danger);
+
+    @media (hover: hover) {
+      &:hover {
+        color: #dc2626;
+        border-bottom-color: var(--color-danger);
+      }
+    }
+  }
+
+  &.link-unstyled {
+    color: inherit;
+    border-bottom: none;
+
+    @media (hover: hover) {
+      &:hover {
+        color: inherit;
+        border-bottom: none;
+      }
+    }
+  }
+}
+
+/* Modal Defaults */
+.modal-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-container {
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    align-items: flex-end;
+  }
+
+  .modal-container {
+    width: 100%;
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 20px 20px 0 0;
+  }
+}
+
+/* ── Tablet Landscape (Samsung Tab A9 ~1006×523) ───────────────────────────
+   Breakpoint: 768px–1023px width. Target area: ~1006×523 CSS px.
+   Goal: compact spacing so more content fits in the limited 523px height.
+   ──────────────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .page-title {
+    font-size: 0.95rem;
+  }
+
+  .page-subtitle {
+    font-size: 0.75rem;
+  }
+
+  .modal-container {
+    max-height: 92vh;
+  }
+}

@@ -1,0 +1,1156 @@
+/*
+ * Dark Mode Global Overrides
+ *
+ * Strategy: html.dark-mode selector overrides scoped component styles.
+ * Specificity [0,2,1] beats Vue scoped [data-v-*] [0,2,0] — no component edits needed.
+ *
+ * Surface hierarchy (purple-tinted dark):
+ *   --color-surface-0 (#0F0020) → page background
+ *   --color-surface-1 (#150030) → cards, panels, modals, sidebars
+ *   --color-surface-2 (#1E0A3C) → inputs, table headers, elevated elements
+ *   --color-surface-3 (#2A1250) → hover states, selected rows
+ *   --color-surface-4 (#361A64) → active / pressed states
+ */
+
+
+/* ============================================================
+   1. PAGE BACKGROUNDS & LAYOUT
+   ============================================================ */
+
+html.dark-mode .app-layout,
+html.dark-mode .kasir-view,
+html.dark-mode .product-view,
+html.dark-mode .user-view,
+html.dark-mode .dashboard-view {
+  background: var(--color-bg);
+}
+
+
+/* ============================================================
+   2. GLOBAL UTILITY CLASSES (main.css)
+   ============================================================ */
+
+html.dark-mode .card {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .label {
+  color: var(--color-text-secondary);
+}
+
+html.dark-mode .input {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .input:focus {
+  background: var(--color-surface-3);
+}
+
+html.dark-mode .input:disabled {
+  background: var(--color-surface-1);
+}
+
+html.dark-mode .input::placeholder {
+  color: var(--color-text-disabled);
+}
+
+html.dark-mode .btn-secondary {
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .btn-secondary:hover:not(:disabled) {
+  background: var(--color-surface-4);
+}
+
+html.dark-mode .btn-back {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .btn-back:hover:not(:disabled) {
+  background: var(--color-surface-3);
+}
+
+html.dark-mode .badge-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+html.dark-mode .badge-success {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+html.dark-mode .badge-danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+
+/* ============================================================
+   3. HTML ELEMENT SELECTORS (bypasses scoping)
+   ============================================================ */
+
+html.dark-mode table {
+  background: var(--color-surface-1);
+}
+
+html.dark-mode thead,
+html.dark-mode thead tr {
+  background: var(--color-surface-2);
+}
+
+html.dark-mode th {
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode td {
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode tr {
+  border-color: var(--color-border);
+}
+
+html.dark-mode tbody tr {
+  background: var(--color-surface-1);
+}
+
+html.dark-mode tbody tr:hover {
+  background: var(--color-surface-3) !important;
+}
+
+html.dark-mode input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode select {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode textarea {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode input::placeholder,
+html.dark-mode select::placeholder,
+html.dark-mode textarea::placeholder {
+  color: var(--color-text-disabled);
+}
+
+html.dark-mode hr {
+  border-color: var(--color-border);
+}
+
+html.dark-mode :focus-visible {
+  outline-color: var(--brand-primary-light);
+}
+
+
+/* ============================================================
+   4. BASE BUTTON (BaseButton.vue)
+   ============================================================ */
+
+html.dark-mode .base-button--secondary {
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .base-button--secondary:hover:not(:disabled) {
+  background: var(--color-surface-4);
+}
+
+/* Warning button: dark text (#78350f) invisible on dark — swap to white */
+html.dark-mode .base-button--warning {
+  color: #ffffff;
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+/* Success button: dark text (#064e3b) invisible on dark — swap to white */
+html.dark-mode .base-button--success {
+  color: #ffffff;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+
+/* ============================================================
+   5. BASE SEARCH INPUT / SEARCH BAR
+   ============================================================ */
+
+html.dark-mode .search-input {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+html.dark-mode .search-input:focus-within {
+  background: var(--color-surface-3);
+  border-color: var(--brand-overlay-primary-30);
+}
+
+html.dark-mode .search-input.is-disabled {
+  background: var(--color-surface-1);
+}
+
+html.dark-mode .search-input__field {
+  color: var(--color-text-primary);
+  background: transparent;
+}
+
+html.dark-mode .search-input__field::placeholder {
+  color: var(--color-text-disabled);
+}
+
+html.dark-mode .base-search-bar {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+}
+
+
+/* ============================================================
+   6. BASE BOTTOM SHEET (BaseBottomSheet.vue)
+   ============================================================ */
+
+html.dark-mode .base-sheet {
+  background: var(--color-surface-1);
+}
+
+html.dark-mode .base-sheet__handle {
+  background: var(--color-surface-4);
+}
+
+html.dark-mode .base-sheet__header {
+  border-bottom-color: var(--color-border);
+}
+
+html.dark-mode .base-sheet__body::-webkit-scrollbar-track {
+  background: var(--color-surface-0);
+}
+
+html.dark-mode .base-sheet__body::-webkit-scrollbar-thumb {
+  background: var(--color-surface-3);
+}
+
+
+/* ============================================================
+   7. TOAST NOTIFICATIONS (GlobalToastContainer.vue)
+   ============================================================ */
+
+html.dark-mode .toast {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+html.dark-mode .toast-success {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(52, 211, 153, 0.3);
+  color: #34d399;
+}
+
+html.dark-mode .toast-error {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+
+html.dark-mode .toast-warning {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+html.dark-mode .toast-info {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+}
+
+
+/* ============================================================
+   8. BASE ALERT (BaseAlert.vue)
+   ============================================================ */
+
+html.dark-mode .base-alert--success {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(52, 211, 153, 0.3);
+  color: #34d399;
+}
+
+html.dark-mode .base-alert--error {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+
+html.dark-mode .base-alert--warning {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+html.dark-mode .base-alert--info {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+}
+
+
+/* ============================================================
+   9. CONFIRM DIALOG (ConfirmDialog.vue)
+   ============================================================ */
+
+html.dark-mode .confirm-dialog {
+  background: var(--color-surface-1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+html.dark-mode .confirm-header {
+  border-bottom-color: var(--color-border);
+}
+
+html.dark-mode .confirm-title {
+  color: var(--color-text-primary);
+}
+
+html.dark-mode .confirm-message {
+  color: var(--color-text-secondary);
+}
+
+html.dark-mode .btn-confirm-cancel {
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .btn-confirm-cancel:hover {
+  background: var(--color-surface-4);
+}
+
+
+/* ============================================================
+   10. CONFIRMATION MODAL (ConfirmationModal.vue)
+   ============================================================ */
+
+html.dark-mode .modal-content {
+  background: var(--color-surface-1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+html.dark-mode .modal-title {
+  color: var(--color-text-primary);
+}
+
+html.dark-mode .modal-message {
+  color: var(--color-text-secondary);
+}
+
+html.dark-mode .modal-footer {
+  border-top-color: var(--color-border);
+  background: var(--color-surface-1);
+}
+
+html.dark-mode .modal-header {
+  background: var(--color-surface-2);
+  border-bottom-color: var(--color-border);
+}
+
+html.dark-mode .modal-container {
+  background: var(--color-surface-1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+html.dark-mode .btn-modal--secondary {
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .btn-modal--secondary:hover {
+  background: var(--color-surface-4);
+}
+
+
+/* ============================================================
+   11. BASE DATA TABLE (BaseDataTable.vue)
+   ============================================================ */
+
+html.dark-mode .table-container {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .base-data-table {
+  background: var(--color-surface-1);
+}
+
+html.dark-mode .pagination-wrapper {
+  border-top-color: var(--color-border);
+  background: var(--color-surface-1);
+}
+
+
+/* ============================================================
+   12. TABLE COMPONENTS (BaseTableHeader, BaseTableRow, TableWrapper)
+   ============================================================ */
+
+html.dark-mode .table-header,
+html.dark-mode .table-header-row {
+  background: var(--color-surface-2);
+  border-bottom-color: var(--color-border);
+}
+
+html.dark-mode .table-header-cell {
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .header-label {
+  color: var(--color-text-secondary);
+}
+
+html.dark-mode .table-row {
+  background: var(--color-surface-1);
+  border-bottom-color: var(--color-border);
+}
+
+html.dark-mode .table-row:hover {
+  background: var(--color-surface-3) !important;
+}
+
+html.dark-mode .table-cell {
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .table-wrapper-container,
+html.dark-mode .table-wrapper {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .data-table {
+  background: var(--color-surface-1);
+}
+
+html.dark-mode .data-table thead,
+html.dark-mode .data-table thead tr {
+  background: var(--color-surface-2);
+}
+
+html.dark-mode .data-table th {
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .data-table tbody tr {
+  background: var(--color-surface-1);
+}
+
+html.dark-mode .data-table tbody tr:hover {
+  background: var(--color-surface-3) !important;
+}
+
+html.dark-mode .data-table td {
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+
+/* ============================================================
+   13. TABLE ACTION BUTTONS — DROPDOWN (TableActionButtons.vue)
+   ============================================================ */
+
+html.dark-mode .dropdown-menu {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+html.dark-mode .dropdown-item {
+  color: var(--color-text-primary);
+}
+
+html.dark-mode .dropdown-item:hover {
+  background: var(--color-surface-3);
+}
+
+
+/* ============================================================
+   14. PAGINATION (BasePagination.vue)
+   ============================================================ */
+
+html.dark-mode .pagination {
+  border-top-color: var(--color-border);
+}
+
+html.dark-mode .pagination-btn {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+html.dark-mode .pagination-btn:hover:not(:disabled) {
+  background: var(--color-surface-3);
+  border-color: var(--brand-overlay-primary-30);
+  color: var(--brand-primary-light);
+}
+
+html.dark-mode .pagination-page {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+html.dark-mode .pagination-page:hover:not(:disabled) {
+  background: var(--color-surface-3);
+  border-color: var(--brand-overlay-primary-30);
+  color: var(--brand-primary-light);
+}
+
+html.dark-mode .pagination-page.active {
+  background: var(--brand-gradient-primary);
+  border-color: var(--brand-primary);
+  color: white;
+}
+
+html.dark-mode .pagination-info {
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+}
+
+html.dark-mode .limit-select {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+
+/* ============================================================
+   15. BADGES (BaseBadge.vue / StatusBadge.vue)
+   ============================================================ */
+
+html.dark-mode .base-badge--neutral,
+html.dark-mode .status-badge--neutral {
+  background: rgba(107, 114, 128, 0.15);
+  color: var(--color-text-secondary);
+  border-color: rgba(107, 114, 128, 0.25);
+}
+
+html.dark-mode .base-badge--success,
+html.dark-mode .status-badge--success {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+html.dark-mode .base-badge--warning,
+html.dark-mode .status-badge--warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+html.dark-mode .base-badge--danger,
+html.dark-mode .status-badge--danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+html.dark-mode .base-badge--info,
+html.dark-mode .status-badge--info {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.25);
+}
+
+html.dark-mode .base-badge--primary {
+  background: var(--brand-overlay-primary-15);
+  border-color: var(--brand-overlay-primary-30);
+}
+
+
+/* ============================================================
+   16. BASE LIST CONTAINER (BaseListContainer.vue)
+   ============================================================ */
+
+html.dark-mode .base-list-container {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .base-list-chips {
+  border-bottom-color: var(--color-border);
+  background: var(--color-surface-2);
+}
+
+
+/* ============================================================
+   17. PRODUCT CARD (ProductCard.vue)
+   ============================================================ */
+
+html.dark-mode .product-card {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .product-card:hover {
+  background: var(--color-surface-2);
+}
+
+html.dark-mode .product-card--disabled {
+  background: var(--color-surface-0) !important;
+}
+
+html.dark-mode .product-card--disabled .product-image {
+  background: var(--color-surface-2) !important;
+}
+
+html.dark-mode .product-card--disabled .product-name {
+  color: var(--color-text-disabled) !important;
+}
+
+html.dark-mode .product-card--disabled .product-price {
+  background: linear-gradient(135deg, var(--color-text-disabled) 0%, var(--color-text-tertiary) 100%) !important;
+}
+
+html.dark-mode .product-image {
+  background: var(--color-surface-2);
+}
+
+
+/* ============================================================
+   18. CART ITEM (CartItem.vue)
+   ============================================================ */
+
+html.dark-mode .cart-item {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .quantity-controls {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .divider,
+html.dark-mode .divider-bold {
+  border-color: var(--color-border);
+}
+
+
+/* ============================================================
+   19. ORDER SUMMARY (OrderSummary.vue)
+   ============================================================ */
+
+html.dark-mode .order-summary {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .summary-line {
+  border-color: var(--color-border);
+}
+
+html.dark-mode .total-line {
+  border-top-color: var(--color-border);
+}
+
+
+/* ============================================================
+   20. TRANSACTION SIDEBAR (TransactionSidebar.vue)
+   ============================================================ */
+
+html.dark-mode .transaction-sidebar {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .sidebar-content {
+  background: var(--color-surface-0);
+}
+
+html.dark-mode .sidebar-bottom {
+  background: var(--color-surface-1);
+  border-top-color: var(--color-border);
+}
+
+html.dark-mode .held-order-card {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+}
+
+
+/* ============================================================
+   21. PAYMENT MODAL (PaymentModal.vue)
+   ============================================================ */
+
+html.dark-mode .method-btn {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+html.dark-mode .method-btn:hover {
+  background: var(--color-surface-3);
+  border-color: var(--brand-overlay-primary-30);
+}
+
+html.dark-mode .cash-payment-form,
+html.dark-mode .split-payment-form {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .change-display,
+html.dark-mode .btn-exact-amount {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .input-field {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .total-display {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .cash-warning {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+
+html.dark-mode .split-total {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+html.dark-mode .split-total.invalid {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+
+/* ============================================================
+   22. CUSTOMER SELECTOR (CustomerSelector.vue)
+   ============================================================ */
+
+html.dark-mode .selector-button {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+html.dark-mode .selector-button:hover {
+  background: var(--color-surface-3);
+}
+
+html.dark-mode .selector-button:disabled {
+  background: var(--color-surface-1);
+}
+
+html.dark-mode .dropdown {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+html.dark-mode .customer-item {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .customer-item:hover {
+  background: var(--color-surface-3);
+}
+
+html.dark-mode .customer-item.active {
+  background: var(--brand-overlay-primary-15);
+}
+
+
+/* ============================================================
+   23. SHIFT CONTROL PANEL (ShiftControlPanel.vue)
+   ============================================================ */
+
+html.dark-mode .shift-control-panel {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+
+/* ============================================================
+   24. PRODUCT LIST SECTION (Kasir/components/ProductListSection.vue)
+   ============================================================ */
+
+html.dark-mode .product-list-section {
+  background: var(--color-surface-0);
+}
+
+html.dark-mode .search-bar {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+}
+
+
+/* ============================================================
+   25. KASIR VIEW (KasirView.vue)
+   ============================================================ */
+
+html.dark-mode .lock-overlay {
+  background: var(--color-surface-1);
+}
+
+html.dark-mode .shift-form-sheet {
+  background: var(--color-surface-1);
+  border-top-color: var(--color-border);
+}
+
+html.dark-mode .form-header {
+  border-bottom-color: var(--color-border);
+  background: var(--color-surface-2);
+}
+
+html.dark-mode .form-body {
+  background: var(--color-surface-1);
+}
+
+html.dark-mode .form-footer {
+  background: var(--color-surface-1);
+  border-top-color: var(--color-border);
+}
+
+html.dark-mode .error-message {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+
+
+/* ============================================================
+   26. DASHBOARD VIEW (DashboardView.vue)
+   ============================================================ */
+
+html.dark-mode .filter-card {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .filter-label {
+  color: var(--color-text-secondary);
+}
+
+html.dark-mode .filter-input {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .summary-card {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .card-label {
+  color: var(--color-text-secondary);
+}
+
+html.dark-mode .best-selling-card {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .product-name {
+  color: var(--color-text-primary);
+}
+
+html.dark-mode .stat-label {
+  color: var(--color-text-secondary);
+}
+
+
+/* ============================================================
+   27. PRODUCT LIST VIEW (ProductListView.vue)
+   ============================================================ */
+
+html.dark-mode .content-card {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+/* Dark text on light gradient cells — make readable */
+html.dark-mode .member-price-cell {
+  color: #34d399;
+}
+
+html.dark-mode .status-badge {
+  color: var(--color-text-secondary);
+}
+
+html.dark-mode .alert,
+html.dark-mode .alert-error {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+
+
+/* ============================================================
+   28. SETTING VIEW (SettingView.vue)
+   ============================================================ */
+
+html.dark-mode .setting-view {
+  background: var(--color-surface-1);
+}
+
+
+/* ============================================================
+   29. USER MANAGEMENT VIEW (UserManagementView.vue)
+   ============================================================ */
+
+html.dark-mode .user-card {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .card-label {
+  color: var(--color-text-secondary);
+}
+
+html.dark-mode .card-row {
+  border-color: var(--color-border);
+}
+
+/* Toggle switch track */
+html.dark-mode input[type="checkbox"] + .toggle,
+html.dark-mode .toggle-track {
+  background: var(--color-surface-3);
+}
+
+
+/* ============================================================
+   30. PROFILE VIEW (ProfileView.vue)
+   ============================================================ */
+
+html.dark-mode .profile-view .card {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .info-row label {
+  color: var(--color-text-secondary);
+}
+
+html.dark-mode .info-row .value {
+  color: var(--color-text-primary);
+}
+
+/* Profile alerts */
+html.dark-mode .alert-success {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(52, 211, 153, 0.3);
+  color: #34d399;
+}
+
+html.dark-mode .alert-error {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+
+
+/* ============================================================
+   31. PRINTER COMPONENTS
+   ============================================================ */
+
+html.dark-mode [class*="printer-"],
+html.dark-mode [class*="-printer"] {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .section-config-panel,
+html.dark-mode .live-preview,
+html.dark-mode .dynamic-preview-panel,
+html.dark-mode .dynamic-section-panel {
+  background: var(--color-surface-1);
+}
+
+
+/* ============================================================
+   32. ALL VIEW BACKGROUNDS
+   ============================================================ */
+
+/* All *-view classes that use #f8fafb */
+html.dark-mode .laporan-view,
+html.dark-mode .payment-methods-view,
+html.dark-mode .customer-view,
+html.dark-mode .promo-management-view,
+html.dark-mode .customer-form,
+html.dark-mode .product-form-view {
+  background: var(--color-bg);
+}
+
+/* All views — catch-all for common card pattern */
+html.dark-mode .summary-card,
+html.dark-mode .top-customer-card,
+html.dark-mode .payment-card,
+html.dark-mode .user-card,
+html.dark-mode .promo-card,
+html.dark-mode .best-selling-card {
+  background: var(--color-surface-1);
+  border-color: var(--color-border);
+}
+
+/* Chips */
+html.dark-mode .chip {
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+html.dark-mode .chip:hover,
+html.dark-mode .chip.active {
+  background: var(--brand-overlay-primary-15);
+  border-color: var(--brand-overlay-primary-30);
+  color: var(--brand-primary-light);
+}
+
+
+/* ============================================================
+   33. FORM SHEETS (used across views)
+   ============================================================ */
+
+html.dark-mode .form-sheet {
+  background: var(--color-surface-1);
+  border-top-color: var(--color-border);
+}
+
+html.dark-mode .form-header {
+  background: var(--color-surface-2);
+  border-bottom-color: var(--color-border);
+}
+
+html.dark-mode .form-body {
+  background: var(--color-surface-1);
+}
+
+html.dark-mode .form-footer {
+  background: var(--color-surface-1);
+  border-top-color: var(--color-border);
+}
+
+html.dark-mode .form-label {
+  color: var(--color-text-secondary);
+}
+
+html.dark-mode .form-input {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .form-error-box {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+
+html.dark-mode .form-group label,
+html.dark-mode .form-label {
+  color: var(--color-text-secondary);
+}
+
+/* btn-cancel used across all form sheets/modals */
+html.dark-mode .btn-cancel {
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
+html.dark-mode .btn-cancel:hover:not(:disabled) {
+  background: var(--color-surface-4);
+  color: var(--color-text-primary);
+}
+
+/* input-wrapper (KasirView shift form) */
+html.dark-mode .input-wrapper input {
+  background: var(--color-surface-2) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border) !important;
+}
+
+html.dark-mode .input-wrapper input:focus {
+  background: var(--color-surface-3) !important;
+  border-color: var(--brand-primary) !important;
+}
+
+html.dark-mode .input-wrapper input:disabled {
+  background: var(--color-surface-1) !important;
+}
+
+html.dark-mode .input-wrapper input::placeholder {
+  color: var(--color-text-disabled) !important;
+}
+
+
+/* ============================================================
+   34. PROMO MANAGEMENT ALERTS
+   ============================================================ */
+
+html.dark-mode .promo-warning,
+html.dark-mode [class*="warning-box"],
+html.dark-mode [style*="#fff3cd"] {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+html.dark-mode [style*="#f8d7da"] {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+
+
+/* ============================================================
+   35. SCROLLBAR
+   ============================================================ */
+
+html.dark-mode ::-webkit-scrollbar-track {
+  background: var(--color-surface-0);
+}
+
+html.dark-mode ::-webkit-scrollbar-thumb {
+  background: var(--color-surface-3);
+}
+
+html.dark-mode ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-surface-4);
+}

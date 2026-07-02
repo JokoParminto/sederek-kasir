@@ -1,0 +1,1221 @@
+/* ============================================================
+   GLOBAL BUTTON STYLING - STANDARDIZED DESIGN SYSTEM
+   ============================================================
+   
+   This file contains all button styles for the POS Coffee Shop App.
+   
+   DESIGN STANDARDS:
+   - Padding: 0.75rem 1.5rem (consistent)
+   - Min-height: 44px (WCAG AAA touch target)
+   - Border-radius: 10px (consistent)
+   - Font-size: 0.95rem (consistent)
+   - Transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)
+   
+   COLOR SCHEMES:
+   - Primary (Green):    .btn-save, .btn-save-changes
+   - Danger (Red):       .btn-delete
+   - Warning (Orange):   .btn-test, .btn-hold
+   - Neutral (Gray):     .btn-reset, .btn-cancel
+   - Edit (Blue):        .btn-edit, .btn-update
+   
+   RESPONSIVE DESIGN:
+   - Desktop (1400px+):  Full size
+   - Tablet (768px-1200px): Same size, adjusted layout
+   - Mobile (<768px):     Same size, full-width stacking
+   
+   ============================================================ */
+
+/* ============================================================
+   SECTION 1: BASE BUTTON STYLES
+   ============================================================ */
+
+.btn-back,
+.btn-save,
+.btn-action,
+.btn-reset,
+.btn-test,
+.btn-update,
+.btn-save-changes,
+.btn-edit,
+.btn-delete,
+.btn-cancel,
+.btn-menu,
+.btn-checkout,
+.btn-hold,
+.btn-split-bill,
+.btn-refresh,
+.btn-add,
+.btn-discount,
+.btn-addon {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.18s ease, background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.01em;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* ============================================================
+   SECTION 2: BUTTON VARIANTS BY TYPE
+   ============================================================ */
+
+/* BACK BUTTON - Navigation */
+.btn-back {
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+
+  &:hover:not(:disabled) {
+    background: rgba(123, 47, 190, 0.06);
+    border-color: rgba(123, 47, 190, 0.3);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background: rgba(123, 47, 190, 0.05);
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(123, 47, 190, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* SAVE BUTTON - Primary Action */
+.btn-save {
+  background: linear-gradient(135deg, rgba(123, 47, 190, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%);
+  color: var(--color-primary-700);
+  border-color: rgba(123, 47, 190, 0.25);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.22) 0%, rgba(52, 211, 153, 0.12) 100%);
+    box-shadow: 0 6px 16px rgba(123, 47, 190, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(123, 47, 190, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* RESET BUTTON - Gray/Neutral */
+.btn-reset {
+  background: linear-gradient(135deg, rgba(107, 114, 128, 0.12) 0%, rgba(156, 163, 175, 0.06) 100%);
+  color: #374151;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(107, 114, 128, 0.18) 0%, rgba(156, 163, 175, 0.1) 100%);
+    box-shadow: 0 4px 12px rgba(107, 114, 128, 0.12);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(107, 114, 128, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* TEST BUTTON - Orange/Warning */
+.btn-test {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(251, 191, 36, 0.08) 100%);
+  color: #92400e;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(251, 191, 36, 0.12) 100%);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(245, 158, 11, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* UPDATE BUTTON - Blue */
+.btn-update {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(96, 165, 250, 0.08) 100%);
+  color: #1e40af;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.22) 0%, rgba(96, 165, 250, 0.12) 100%);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* SAVE CHANGES BUTTON - Green Primary */
+.btn-save-changes {
+  background: linear-gradient(135deg, rgba(123, 47, 190, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%);
+  color: var(--color-primary-700);
+  border-color: rgba(123, 47, 190, 0.25);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.22) 0%, rgba(52, 211, 153, 0.12) 100%);
+    box-shadow: 0 6px 16px rgba(123, 47, 190, 0.2);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(123, 47, 190, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* EDIT BUTTON - Blue */
+.btn-edit {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(96, 165, 250, 0.06) 100%);
+  color: #1e40af;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(96, 165, 250, 0.1) 100%);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* DELETE BUTTON - Red Danger */
+.btn-delete {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(248, 113, 113, 0.06) 100%);
+  color: #7f1d1d;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(248, 113, 113, 0.1) 100%);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(239, 68, 68, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* CANCEL BUTTON - Gray/Neutral */
+.btn-cancel {
+  background: linear-gradient(135deg, rgba(107, 114, 128, 0.12) 0%, rgba(156, 163, 175, 0.06) 100%);
+  color: #374151;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(107, 114, 128, 0.18) 0%, rgba(156, 163, 175, 0.1) 100%);
+    box-shadow: 0 4px 12px rgba(107, 114, 128, 0.12);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(107, 114, 128, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* MENU BUTTON - Gray/Neutral */
+.btn-menu {
+  background: linear-gradient(135deg, rgba(107, 114, 128, 0.12) 0%, rgba(156, 163, 175, 0.06) 100%);
+  color: #374151;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(107, 114, 128, 0.18) 0%, rgba(156, 163, 175, 0.1) 100%);
+    box-shadow: 0 4px 12px rgba(107, 114, 128, 0.12);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(107, 114, 128, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* CHECKOUT BUTTON - Green Primary */
+.btn-checkout {
+  background: linear-gradient(135deg, rgba(123, 47, 190, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%);
+  color: var(--color-primary-700);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.22) 0%, rgba(52, 211, 153, 0.12) 100%);
+    box-shadow: 0 6px 16px rgba(123, 47, 190, 0.2);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(123, 47, 190, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* HOLD BUTTON - Orange/Warning */
+.btn-hold {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(251, 191, 36, 0.08) 100%);
+  color: #92400e;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(251, 191, 36, 0.12) 100%);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(245, 158, 11, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* SPLIT BILL BUTTON - Purple Accent */
+.btn-split-bill {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(168, 85, 247, 0.08) 100%);
+  color: #6b21a8;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(168, 85, 247, 0.12) 100%);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(139, 92, 246, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* REFRESH BUTTON - Blue */
+.btn-refresh {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(96, 165, 250, 0.06) 100%);
+  color: #1e40af;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(96, 165, 250, 0.1) 100%);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* ADD BUTTON - Green Primary */
+.btn-add {
+  background: linear-gradient(135deg, rgba(123, 47, 190, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%);
+  color: var(--color-primary-700);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.22) 0%, rgba(52, 211, 153, 0.12) 100%);
+    box-shadow: 0 6px 16px rgba(123, 47, 190, 0.2);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(123, 47, 190, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* DISCOUNT BUTTON - Orange/Warning */
+.btn-discount {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(251, 191, 36, 0.08) 100%);
+  color: #92400e;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(251, 191, 36, 0.12) 100%);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(245, 158, 11, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* ADDON BUTTON - Blue */
+.btn-addon {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(96, 165, 250, 0.06) 100%);
+  color: #1e40af;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(96, 165, 250, 0.1) 100%);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* GENERIC ACTION BUTTON */
+.btn-action {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(96, 165, 250, 0.06) 100%);
+  color: #1e40af;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(96, 165, 250, 0.1) 100%);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.5);
+    outline-offset: 2px;
+  }
+}
+
+/* CONFIRM/DIALOG BUTTONS */
+.btn-confirm-cancel {
+  background: rgba(0, 0, 0, 0.05);
+  color: #6b7280;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0.65rem 1.5rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  border: none;
+  min-width: 100px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.btn-confirm-yes,
+.btn-confirm-delete {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  padding: 0.65rem 1.5rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  border: none;
+  min-width: 100px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* Confirm dialog info variant */
+.confirm-dialog--info .btn-confirm-yes {
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 100%);
+  box-shadow: 0 4px 12px rgba(123, 47, 190, 0.3);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--brand-primary-dark) 0%, var(--brand-primary-darker) 100%);
+    box-shadow: 0 6px 16px rgba(123, 47, 190, 0.4);
+  }
+}
+
+/* CLOSE/CLOSE-ALERT BUTTON - Gray/Neutral */
+.btn-close,
+.btn-close-alert,
+.btn-close-modal {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover:not(:disabled) {
+    background: rgba(107, 114, 128, 0.15);
+    border-color: rgba(107, 114, 128, 0.3);
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* PRIMARY/SECONDARY BUTTONS */
+.btn-primary {
+  background: linear-gradient(135deg, rgba(123, 47, 190, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%);
+  color: var(--color-primary-700);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.22) 0%, rgba(52, 211, 153, 0.12) 100%);
+    box-shadow: 0 6px 16px rgba(123, 47, 190, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, rgba(107, 114, 128, 0.12) 0%, rgba(156, 163, 175, 0.06) 100%);
+  color: #374151;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(107, 114, 128, 0.18) 0%, rgba(156, 163, 175, 0.1) 100%);
+    box-shadow: 0 4px 12px rgba(107, 114, 128, 0.12);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* SUBMIT BUTTON - Green Primary */
+.btn-submit {
+  background: linear-gradient(135deg, rgba(123, 47, 190, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%);
+  color: var(--color-primary-700);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.22) 0%, rgba(52, 211, 153, 0.12) 100%);
+    box-shadow: 0 6px 16px rgba(123, 47, 190, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* QUANTITY/COUNTER BUTTONS */
+.btn-qty-minus,
+.btn-qty-plus {
+  background: white;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+  color: #374151;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: auto;
+
+  &:hover:not(:disabled) {
+    background: rgba(107, 114, 128, 0.05);
+    border-color: rgba(107, 114, 128, 0.3);
+  }
+
+  &:active:not(:disabled) {
+    background: rgba(107, 114, 128, 0.1);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+/* TOGGLE BUTTONS */
+.btn-toggle-on,
+.btn-toggle-off,
+.btn-toggle-password {
+  background: white;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+  color: #6b7280;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+
+  &:hover:not(:disabled) {
+    background: rgba(107, 114, 128, 0.05);
+    border-color: rgba(107, 114, 128, 0.3);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.btn-toggle-on {
+  background: rgba(123, 47, 190, 0.1);
+  border-color: rgba(123, 47, 190, 0.3);
+  color: var(--color-primary-700);
+
+  &:hover:not(:disabled) {
+    background: rgba(123, 47, 190, 0.15);
+    border-color: rgba(123, 47, 190, 0.5);
+  }
+}
+
+/* QUICK SELECT/DESELECT BUTTONS */
+.btn-quick-select,
+.btn-quick-deselect,
+.btn-quick-select-small,
+.btn-quick-deselect-small {
+  background: white;
+  border: 1px solid rgba(123, 47, 190, 0.3);
+  color: var(--color-primary-700);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+
+  &:hover:not(:disabled) {
+    background: rgba(123, 47, 190, 0.05);
+    border-color: rgba(123, 47, 190, 0.5);
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.btn-quick-deselect,
+.btn-quick-deselect-small {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #7f1d1d;
+
+  &:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.05);
+    border-color: rgba(239, 68, 68, 0.5);
+  }
+}
+
+.btn-quick-select-small,
+.btn-quick-deselect-small {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.75rem;
+  min-height: auto;
+}
+
+/* ORDER/TRANSACTION BUTTONS */
+.btn-held-orders,
+.btn-load-order,
+.btn-open-shift {
+  background: linear-gradient(135deg, rgba(123, 47, 190, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%);
+  color: var(--color-primary-700);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.22) 0%, rgba(52, 211, 153, 0.12) 100%);
+    box-shadow: 0 6px 16px rgba(123, 47, 190, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* PAY BUTTON - Blue */
+.btn-pay {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(96, 165, 250, 0.08) 100%);
+  color: #1e40af;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.22) 0%, rgba(96, 165, 250, 0.12) 100%);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* MINI BUTTONS */
+.btn-mini {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.75rem;
+  min-height: auto;
+  border-radius: 6px;
+}
+
+/* SPECIAL BUTTONS */
+.btn-clear {
+  background: white;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #7f1d1d;
+
+  &:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.05);
+    border-color: rgba(239, 68, 68, 0.3);
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.btn-confirm {
+  background: linear-gradient(135deg, rgba(123, 47, 190, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%);
+  color: var(--color-primary-700);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.22) 0%, rgba(52, 211, 153, 0.12) 100%);
+    box-shadow: 0 6px 16px rgba(123, 47, 190, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.btn-demo {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(251, 191, 36, 0.08) 100%);
+  color: #92400e;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(251, 191, 36, 0.12) 100%);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.btn-distribute {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(168, 85, 247, 0.08) 100%);
+  color: #6b21a8;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(168, 85, 247, 0.12) 100%);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.btn-exact-amount {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(96, 165, 250, 0.08) 100%);
+  color: #1e40af;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.22) 0%, rgba(96, 165, 250, 0.12) 100%);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.btn-login {
+  background: linear-gradient(135deg, rgba(123, 47, 190, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%);
+  color: var(--color-primary-700);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.22) 0%, rgba(52, 211, 153, 0.12) 100%);
+    box-shadow: 0 6px 16px rgba(123, 47, 190, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.btn-spinner {
+  background: linear-gradient(135deg, rgba(123, 47, 190, 0.15) 0%, rgba(52, 211, 153, 0.08) 100%);
+  color: var(--color-primary-700);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(123, 47, 190, 0.22) 0%, rgba(52, 211, 153, 0.12) 100%);
+    box-shadow: 0 6px 16px rgba(123, 47, 190, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* ============================================================
+    SECTION 3: LOADING STATES & ANIMATIONS
+    ============================================================ */
+
+.loading-spinner {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================
+   SECTION 4: RESPONSIVE BREAKPOINTS
+   ============================================================ */
+
+/* Large Desktop (1400px+) - Optimal viewing */
+@media (min-width: 1400px) {
+  .btn-back,
+  .btn-save,
+  .btn-action,
+  .btn-reset,
+  .btn-test,
+  .btn-update,
+  .btn-save-changes,
+  .btn-edit,
+  .btn-delete,
+  .btn-cancel,
+  .btn-menu,
+  .btn-checkout,
+  .btn-hold,
+  .btn-split-bill,
+  .btn-refresh,
+  .btn-add,
+  .btn-discount,
+  .btn-addon {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.95rem;
+    min-height: 44px;
+  }
+}
+
+/* Tablet Landscape (1024px - 1200px) */
+@media (max-width: 1200px) {
+  .btn-back,
+  .btn-save,
+  .btn-action,
+  .btn-reset,
+  .btn-test,
+  .btn-update,
+  .btn-save-changes,
+  .btn-edit,
+  .btn-delete,
+  .btn-cancel,
+  .btn-menu,
+  .btn-checkout,
+  .btn-hold,
+  .btn-split-bill,
+  .btn-refresh,
+  .btn-add,
+  .btn-discount,
+  .btn-addon {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.95rem;
+    min-height: 44px;
+  }
+}
+
+/* Tablet Portrait (768px - 1024px) */
+@media (max-width: 1024px) {
+  .btn-back,
+  .btn-save,
+  .btn-action,
+  .btn-reset,
+  .btn-test,
+  .btn-update,
+  .btn-save-changes,
+  .btn-edit,
+  .btn-delete,
+  .btn-cancel,
+  .btn-menu,
+  .btn-checkout,
+  .btn-hold,
+  .btn-split-bill,
+  .btn-refresh,
+  .btn-add,
+  .btn-discount,
+  .btn-addon {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.95rem;
+    min-height: 44px;
+  }
+}
+
+/* Mobile Landscape & Small Tablet (640px - 768px) */
+@media (max-width: 768px) {
+  .btn-back,
+  .btn-save,
+  .btn-action,
+  .btn-reset,
+  .btn-test,
+  .btn-update,
+  .btn-save-changes,
+  .btn-edit,
+  .btn-delete,
+  .btn-cancel,
+  .btn-menu,
+  .btn-checkout,
+  .btn-hold,
+  .btn-split-bill,
+  .btn-refresh,
+  .btn-add,
+  .btn-discount,
+  .btn-addon {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.95rem;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 768px) {
+  .btn-action,
+  .btn-checkout,
+  .btn-hold,
+  .btn-split-bill {
+    min-height: 48px;
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    gap: 0.4rem;
+  }
+
+  .btn-checkout {
+    font-weight: 700;
+  }
+}
+
+/* Mobile Portrait (< 640px) */
+@media (max-width: 640px) {
+  .btn-back,
+  .btn-save,
+  .btn-action,
+  .btn-reset,
+  .btn-test,
+  .btn-update,
+  .btn-save-changes,
+  .btn-edit,
+  .btn-delete,
+  .btn-cancel,
+  .btn-menu,
+  .btn-checkout,
+  .btn-hold,
+  .btn-split-bill,
+  .btn-refresh,
+  .btn-add,
+  .btn-discount,
+  .btn-addon {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.95rem;
+    min-height: 44px;
+  }
+}
+
+/* Touch devices: suppress sticky hover transform (hover fires on tap and sticks) */
+@media (hover: none) {
+  .btn-back:hover,
+  .btn-save:hover,
+  .btn-action:hover,
+  .btn-reset:hover,
+  .btn-test:hover,
+  .btn-update:hover,
+  .btn-save-changes:hover,
+  .btn-edit:hover,
+  .btn-delete:hover,
+  .btn-cancel:hover,
+  .btn-menu:hover,
+  .btn-checkout:hover,
+  .btn-hold:hover,
+  .btn-split-bill:hover,
+  .btn-refresh:hover,
+  .btn-add:hover,
+  .btn-discount:hover,
+  .btn-addon:hover,
+  .btn-primary:hover,
+  .btn-secondary:hover,
+  .btn-submit:hover,
+  .btn-confirm-cancel:hover,
+  .btn-confirm-yes:hover,
+  .btn-confirm-delete:hover,
+  .btn-close:hover,
+  .btn-close-alert:hover,
+  .btn-close-modal:hover,
+  .btn-back:hover,
+  .logout-btn:hover {
+    transform: none !important;
+  }
+}

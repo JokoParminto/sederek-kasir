@@ -1,0 +1,47 @@
+/* ================================================================
+   BRAND CONFIGURATION — Sederek Kopi
+   ----------------------------------------------------------------
+   Edit ONLY this file to rebrand.
+   All other files reference these tokens via var(--brand-*).
+   ================================================================ */
+
+:root {
+  /* ---- Identity ---- */
+  --brand-name: "Sederek Kopi";
+
+  /* ---- Core Colors ---- */
+  --brand-primary:          #1B6B3A;
+  --brand-primary-dark:     #145230;
+  --brand-primary-darker:   #0D3B22;
+  --brand-primary-deep:     #0A2D1A;
+  --brand-primary-light:    #52B788;
+  --brand-primary-pale:     #EEF7F1;
+  --brand-bg-dark:          #071910;
+  --brand-cream:            #F5F0E8;
+
+  /* ---- Gradients ---- */
+  --brand-gradient-primary: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 100%);
+  --brand-gradient-dark:    linear-gradient(135deg, var(--brand-primary-dark) 0%, var(--brand-primary-darker) 100%);
+  --brand-gradient-login:   linear-gradient(135deg, var(--brand-bg-dark) 0%, var(--brand-primary-deep) 50%, var(--brand-primary-darker) 100%);
+
+  /* ---- Fonts ---- */
+  --brand-font-heading: 'Bebas Neue', sans-serif;
+  --brand-font-body:    'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --brand-font-accent:  'Great Vibes', cursive;
+
+  /* ---- Shadows & Glows ---- */
+  --brand-shadow-primary:  0 4px 20px rgba(27, 107, 58, 0.3);
+  --brand-shadow-deep:     0 4px 20px rgba(10, 45, 26, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --brand-glow-logo:       drop-shadow(0 2px 8px rgba(27, 107, 58, 0.5));
+  --brand-glow-logo-login: drop-shadow(0 4px 16px rgba(10, 45, 26, 0.6));
+
+  /* ---- Borders / Overlays ---- */
+  --brand-border-primary:    rgba(27, 107, 58, 0.3);
+  --brand-border-topbar:     rgba(27, 107, 58, 0.3);
+  --brand-overlay-primary-10: rgba(27, 107, 58, 0.1);
+  --brand-overlay-primary-15: rgba(27, 107, 58, 0.15);
+  --brand-overlay-primary-20: rgba(27, 107, 58, 0.2);
+  --brand-overlay-primary-30: rgba(27, 107, 58, 0.3);
+  --brand-overlay-deep-40:    rgba(10, 45, 26, 0.4);
+  --brand-overlay-deep-60:    rgba(10, 45, 26, 0.6);
+}
