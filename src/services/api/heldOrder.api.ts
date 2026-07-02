@@ -114,6 +114,7 @@ export const heldOrderApi = {
            },
            subtotal: parseFloat(item.total) || parseFloat(item.subtotal) || 0,
            is_member_price: item.is_member_price || false,
+           categoryName: item.category_name || undefined,
            addOns: (item.addOns || []).map((a: any) => ({
              id: a.id,
              addOnId: a.addOnId,
@@ -204,6 +205,7 @@ export const heldOrderApi = {
             value: parseFloat(item.discount_amount) || 0,
           },
           subtotal: parseFloat(item.total) || parseFloat(item.subtotal) || 0,
+          categoryName: item.category_name || undefined,
           addOns: (item.add_ons || item.addOns || []).map((addOn: any) => ({
             id: addOn.id,
             addOnId: addOn.add_on_id || addOn.addOnId,
