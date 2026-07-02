@@ -57,8 +57,8 @@ defineEmits<Emits>()
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #ffffff;
-  border: 1px solid rgba(123, 47, 190, 0.08);
+  background: var(--color-surface-0);
+  border: 1px solid var(--color-border-light);
   border-radius: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   overflow: hidden;
@@ -68,28 +68,29 @@ defineEmits<Emits>()
 .search-bar {
   padding: var(--spacing-3);
   background: transparent;
-  border-bottom: 1px solid rgba(123, 47, 190, 0.08);
+  border-bottom: 1px solid var(--color-border-light);
   flex-shrink: 0;
 }
 
 .search-input {
   width: 100%;
   padding: 0.6rem var(--spacing-3);
-  border: 1px solid rgba(123, 47, 190, 0.12);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   font-size: 0.8rem;
   transition: border-color 0.15s;
-  background: #ffffff;
+  background: var(--color-surface-0);
   color: var(--color-text-primary);
   font-weight: 500;
 
   &:hover {
-    border-color: rgba(123, 47, 190, 0.25);
+    border-color: var(--brand-primary);
   }
 
   &:focus {
     outline: none;
-    border-color: var(--color-primary);
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(27, 107, 58, 0.12);
   }
 
   &::placeholder {

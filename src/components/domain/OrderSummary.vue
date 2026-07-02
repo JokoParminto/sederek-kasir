@@ -13,12 +13,14 @@ const props = defineProps<Props>()
 
 const { calculateCartSubtotal, calculateGlobalDiscountAmount, calculateItemDiscount } = useDiscount()
 
+const unpaidItems = computed(() => props.items.filter(i => i.paymentStatus !== 'paid'))
+
 const subtotal = computed(() =>
-  calculateCartSubtotal(props.items)
+  calculateCartSubtotal(unpaidItems.value)
 )
 
 const totalItemDiscounts = computed(() =>
-  props.items.reduce((sum: number, item: TransactionItem) => sum + calculateItemDiscount(item), 0)
+  unpaidItems.value.reduce((sum: number, item: TransactionItem) => sum + calculateItemDiscount(item), 0)
 )
 
 const globalDiscountAmount = computed(() =>

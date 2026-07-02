@@ -463,14 +463,14 @@ const handleTest = async () => {
       chunks.push(escpos.align('center'))
       if (cfg.header.show_logo) {
         try {
-          const logoModule = await import('@/assets/logo/logoblack.png')
           const logoDots = Math.floor(printableDots * 2 / 3)
+          const logoModule = await import('@/assets/logo/logo-black.png')
           const logoBytes = await escpos.rasterImage(logoModule.default, logoDots)
           chunks.push(logoBytes, escpos.lineFeed(1))
         } catch { /* logo gagal dimuat, skip */ }
       }
       if (cfg.header.show_store_name) {
-        chunks.push(escpos.bold(true), L(clean(hd.store_name || 'Jagad Coffee')), escpos.bold(false))
+        chunks.push(escpos.bold(true), L(clean(hd.store_name || 'Sederek Kopi')), escpos.bold(false))
       }
       if (cfg.header.show_store_address && hd.store_address) {
         for (const line of wrap(hd.store_address)) chunks.push(L(line))
@@ -507,8 +507,11 @@ const handleTest = async () => {
       }
       chunks.push(L(div))
       if (cfg.summary.show_subtotal) chunks.push(L(twoCol('Subtotal', fmt(payment.subtotal))))
-      if (cfg.summary.show_discount && payment.global_discount > 0) {
-        chunks.push(L(twoCol('Diskon', `-${fmt(payment.global_discount)}`)))
+      if (cfg.summary.show_discount) {
+        const itemDisc = parseFloat(payment.discount_items || 0)
+        const globalDisc = parseFloat(payment.global_discount || 0)
+        const totalDisc = itemDisc + globalDisc
+        if (totalDisc > 0) chunks.push(L(twoCol('Diskon', `-${fmt(totalDisc)}`)))
       }
       if (cfg.summary.show_payment_method && payment.payment_method) {
         chunks.push(L(twoCol('Bayar', clean(payment.payment_method))))

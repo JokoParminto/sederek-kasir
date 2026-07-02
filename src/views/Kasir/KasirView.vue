@@ -332,13 +332,13 @@ const printCustomerReceipt = async (trx: Transaction) => {
     // ── Header ──
     if (cfg.header.show_logo) {
       try {
-        const logoModule = await import('@/assets/logo/logoblack.png')
         const logoDots = Math.floor(printableDots * 2 / 3)
+        const logoModule = await import('@/assets/logo/logo-black.png')
         chunks.push(await escpos.rasterImage(logoModule.default, logoDots), escpos.lineFeed(1))
       } catch { /* logo optional */ }
     }
     if (cfg.header.show_store_name) {
-      chunks.push(escpos.bold(true), L(clean(hd.store_name || 'Jagad Coffee')), escpos.bold(false))
+      chunks.push(escpos.bold(true), L(clean(hd.store_name || 'Sederek Kopi')), escpos.bold(false))
     }
     if (cfg.header.show_store_address && hd.store_address) {
       for (const line of wrap(hd.store_address)) chunks.push(L(line))
@@ -380,8 +380,13 @@ const printCustomerReceipt = async (trx: Transaction) => {
 
     // ── Summary ──
     if (cfg.summary.show_subtotal) chunks.push(L(twoCol('Subtotal', fmt(trx.subtotal))))
-    if (cfg.summary.show_discount && trx.globalDiscountAmount > 0) {
-      chunks.push(L(twoCol('Diskon', `-${fmt(trx.globalDiscountAmount)}`)))
+    if (cfg.summary.show_discount) {
+      const itemDisc = trx.itemDiscounts || 0
+      const globalDisc = trx.globalDiscountAmount || 0
+      const totalDisc = itemDisc + globalDisc
+      if (totalDisc > 0) {
+        chunks.push(L(twoCol('Diskon', `-${fmt(totalDisc)}`)))
+      }
     }
     if (cfg.summary.show_payment_method) {
       chunks.push(L(twoCol('Bayar', clean(trx.paymentMethod || '-'))))
@@ -526,6 +531,37 @@ const handlePay = async (method: string, details?: SplitPayment | Record<string,
   }
 }
 
+// Refresh cart dari held order terbaru di API (tanpa reload halaman)
+const refreshCartFromServer = async () => {
+  if (!loadedFromHeldOrderId.value) return
+  try {
+    const heldOrder = await heldOrderApi.getHeldOrderDetail(loadedFromHeldOrderId.value)
+    transactionStore.clearTransaction()
+    if (heldOrder.customerId) {
+      const customerFound = customers.value.find(c => c.id === heldOrder.customerId)
+      transactionStore.setSelectedCustomer(heldOrder.customerId, customerFound?.is_member ?? heldOrder.customerIsMember ?? false)
+    }
+    for (const item of (heldOrder.items ?? [])) {
+      transactionStore.addItem({
+        productId: item.productId,
+        productName: item.productName,
+        price: item.price,
+        originalPrice: item.originalPrice ?? item.price,
+        memberPrice: item.memberPrice ?? null,
+        is_member_price: item.is_member_price ?? false,
+        quantity: item.quantity,
+        discount: item.discount ?? { type: 'amount', value: 0 },
+        notes: item.notes ?? '',
+        addOns: item.addOns ?? [],
+        paymentStatus: item.paymentStatus,
+      })
+    }
+    if (heldOrder.globalDiscount) transactionStore.setGlobalDiscount(heldOrder.globalDiscount)
+  } catch {
+    // Offline atau held order sudah tidak ada — biarkan cart apa adanya
+  }
+}
+
 // Refresh held orders from backend
 const refreshHeldOrders = async () => {
   try {
@@ -649,18 +685,19 @@ const handleLoadHeldOrder = async (orderId: string) => {
   if (loadingHeldOrderId.value) return
   loadingHeldOrderId.value = orderId
   try {
-    // Step 1: Fetch fresh customer list to ensure we have all customer data
+    // Step 1: Fetch fresh dari API — kalau offline, lanjut pakai cache
+    await Promise.all([
+      refreshHeldOrders().catch(() => {}),
+      loadInitialCustomers().catch(() => {}),
+    ])
 
+    // Step 2: Get held order detail — fallback ke cache kalau offline
+    let heldOrder = heldOrders.value.find(o => o.id === orderId) ?? null
     try {
-      await loadInitialCustomers()
-
-    } catch (err) {
-
+      heldOrder = await heldOrderApi.getHeldOrderDetail(orderId)
+    } catch {
+      if (!heldOrder) { showError('Tidak bisa memuat held order, cek koneksi internet'); return }
     }
-
-    // Step 2: Get held order details
-
-    const heldOrder = await heldOrderApi.getHeldOrderDetail(orderId)
 
 
     // Step 3: Clear current cart
@@ -801,7 +838,7 @@ const buildCartTransaction = (): Transaction => ({
   customerId: transactionStore.selectedCustomerId,
   customerName: customers.value.find(c => c.id === transactionStore.selectedCustomerId)?.name || 'Walk In',
   customerIsMember: transactionStore.selectedCustomerIsMember,
-  items: transactionStore.items.map(item => ({ ...item, paymentStatus: 'unpaid' as const })),
+  items: transactionStore.items.map(item => ({ ...item, paymentStatus: item.paymentStatus ?? 'unpaid' as const })),
   subtotal: transactionStore.subtotal,
   itemDiscounts: transactionStore.totalItemDiscounts,
   globalDiscount: transactionStore.globalDiscount,
@@ -811,7 +848,7 @@ const buildCartTransaction = (): Transaction => ({
   status: 'open',
   cashierId: '',
   createdAt: new Date(),
-  amount_paid: 0,
+  amount_paid: transactionStore.items.filter(i => i.paymentStatus === 'paid').reduce((s, i) => s + i.subtotal, 0),
   remaining_amount: transactionStore.total,
 })
 
@@ -887,14 +924,17 @@ const handlePartialCartCheckout = async (
 
   const completedTransaction = await transactionApi.checkout(checkoutData)
 
-  // Remove paid items from cart
+  // Auto-save held order dengan remaining items dulu
+  // Remove paid items dari cart
   for (const item of paidCartItems) transactionStore.removeItem(item.id)
-
-  // Update cart split transaction for modal
-  cartSplitTransaction.value = transactionStore.isEmpty ? null : buildCartTransaction()
-
-  // Auto-save/delete held order with remaining items
   await autoSaveRemainingHeldOrder()
+
+  // Re-fetch cart dari server supaya sync (non-blocking)
+  refreshCartFromServer().then(() => {
+    cartSplitTransaction.value = transactionStore.isEmpty ? null : buildCartTransaction()
+  }).catch(() => {
+    cartSplitTransaction.value = transactionStore.isEmpty ? null : buildCartTransaction()
+  })
 
   // Auto-print receipt for paid items
   printCustomerReceipt(completedTransaction)
@@ -909,15 +949,16 @@ const handlePartialCartCheckout = async (
 
 // Handle open split bill modal
 const handleOpenSplitBill = async () => {
-  try {
-    await transactionStore.fetchOpenTransactions()
-    // If held order is loaded in cart → include cart as a virtual transaction to split
-    cartSplitTransaction.value = (loadedFromHeldOrderId.value && !transactionStore.isEmpty)
-      ? buildCartTransaction()
-      : null
+  if (!transactionStore.isEmpty) {
+    // Cart ada items → split dari cart saja, jangan campur DB transactions
+    transactionStore.clearOpenTransactions()
+    cartSplitTransaction.value = buildCartTransaction()
     showSplitBillModal.value = true
-  } catch (err) {
-    showError('Gagal membuka split bill')
+  } else {
+    // Cart kosong → fetch DB open transactions, buka modal dengan cache dulu
+    cartSplitTransaction.value = null
+    showSplitBillModal.value = true
+    transactionStore.fetchOpenTransactions().catch(() => {})
   }
 }
 

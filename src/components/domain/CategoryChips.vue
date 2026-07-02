@@ -43,7 +43,7 @@ defineEmits<Emits>()
   padding: var(--spacing-2) var(--spacing-3);
   overflow-x: auto;
   scroll-behavior: smooth;
-  border-bottom: 1px solid rgba(123, 47, 190, 0.08);
+  border-bottom: 1px solid var(--color-border-light);
   background: transparent;
   flex-shrink: 0;
 
@@ -57,8 +57,8 @@ defineEmits<Emits>()
 .chip {
   flex-shrink: 0;
   padding: 0.4rem var(--spacing-3);
-  border: 1px solid rgba(123, 47, 190, 0.15);
-  background: white;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface-0);
   color: var(--color-text-secondary);
   border-radius: 10px;
   font-weight: 600;
@@ -66,23 +66,24 @@ defineEmits<Emits>()
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.15s, background-color 0.15s;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s;
   white-space: nowrap;
   letter-spacing: 0.01em;
+}
 
-  @media (hover: hover) {
-    &:hover {
-      border-color: rgba(123, 47, 190, 0.3);
-      color: var(--color-primary-700);
-    }
-  }
+.chip:hover:not(.chip--active) {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+  background: rgba(27, 107, 58, 0.05);
+}
 
-  &--active {
-    background: var(--brand-primary);
-    border-color: transparent;
-    color: white;
-    font-weight: 700;
-  }
+.chip--active {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 3px 10px rgba(27, 107, 58, 0.35);
+  transform: translateY(-1px);
 }
 
 /* Responsive */

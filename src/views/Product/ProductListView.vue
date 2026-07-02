@@ -862,10 +862,17 @@ const isProductInCart = (productId: string): boolean => {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
   &.active {
-    background: linear-gradient(135deg, var(--brand-primary) 0%, #a78bfa 100%) !important;
-    border-color: transparent !important;
+    background: var(--brand-primary) !important;
+    border-color: var(--brand-primary) !important;
     color: white !important;
-    box-shadow: 0 8px 24px rgba(123, 47, 190, 0.35);
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(27, 107, 58, 0.3) !important;
+  }
+
+  &:not(.active):hover {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+    background: rgba(27, 107, 58, 0.05);
   }
 }
 

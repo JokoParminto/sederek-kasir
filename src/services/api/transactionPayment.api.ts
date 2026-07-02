@@ -1,5 +1,6 @@
 import apiClient from './client'
 import type { PaymentMethod } from '@/types'
+import { offlineQueue } from '@/services/offlineQueue'
 
 interface SplitBillPaymentRequest {
   payment_method: string
@@ -71,8 +72,26 @@ export const recordSplitBillPayment = async (
     // Backend wraps in { success, data: {...} } — unwrap if needed
     const body = response.data
     return (body?.data ?? body) as RecordPaymentResponse
-  } catch (error) {
-
+  } catch (error: any) {
+    const isOffline = !navigator.onLine || error?.code === 'ERR_NETWORK'
+    if (isOffline) {
+      await offlineQueue.push('POST', `/transactions/${transactionId}/payments`, payload)
+      return {
+        payment: {
+          id: `offline-${Date.now()}`,
+          transaction_id: transactionId,
+          amount_paid: paidItems.reduce((s, i) => s + i.item_subtotal, 0),
+          payment_method: paymentMethod,
+          payment_method_id: paymentMethodId || undefined,
+          paid_items_json: paidItems.map(i => ({ item_id: i.item_id, quantity: i.quantity })),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        transaction_status: 'partial_paid',
+        remaining_amount: 0,
+        total_paid: paidItems.reduce((s, i) => s + i.item_subtotal, 0),
+      }
+    }
     throw error
   }
 }

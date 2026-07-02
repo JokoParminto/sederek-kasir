@@ -517,7 +517,7 @@ export const transactionApi = {
         notes?: string
       }>
       discount?: {
-        type: 'nominal' | 'percentage'
+        type: 'amount' | 'percentage'
         value: number
       }
       payment_method?: PaymentMethod

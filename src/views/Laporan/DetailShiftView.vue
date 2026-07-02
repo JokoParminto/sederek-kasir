@@ -32,21 +32,39 @@ const currentShiftForEdit = ref<any>(null)
 const isShiftActive = computed(() => shift.value?.status === 'active')
 
 const summaryStats = computed(() => {
-  if (!shift.value) return { totalRevenue: 0, totalExpenses: 0, totalDiscount: 0, totalItems: 0 }
-  let totalRevenue = 0
-  let totalDiscount = 0
-  let totalItems = 0
-  transactions.value.forEach((t: any) => {
-    totalRevenue += t.total || 0
-    totalDiscount += (t.itemDiscounts || 0) + (t.globalDiscountAmount || 0)
-    if (t.items?.length > 0) {
-      totalItems += t.items.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0)
-    } else {
-      totalItems += t.itemCount || 0
-    }
-  })
-  return { totalRevenue, totalExpenses: shift.value.total_expenses || 0, totalDiscount, totalItems }
+  if (!shift.value) return {
+    totalRevenue: 0, totalExpenses: 0, totalDiscount: 0,
+    totalItems: 0, totalNetto: 0, modalAwal: 0, transactionCount: 0
+  }
+  return {
+    totalRevenue:      parseFloat(shift.value.total_sales    || 0),
+    totalExpenses:     parseFloat(shift.value.total_expenses || 0),
+    totalDiscount:     parseFloat(shift.value.total_discount || 0),
+    totalItems:        parseInt(shift.value.total_items       || 0),
+    totalNetto:        parseFloat(shift.value.total_netto    || 0),
+    modalAwal:         parseFloat(shift.value.modal_awal     || 0),
+    transactionCount:  parseInt(shift.value.transaction_count || 0),
+  }
 })
+
+const getPaymentMethodLabel = (method: string) => {
+  const map: Record<string, string> = {
+    cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer',
+    debit: 'Debit', credit: 'Kredit',
+  }
+  return map[method?.toLowerCase()] || method || 'Tunai'
+}
+
+const getPaymentMethodClass = (method: string) => {
+  const map: Record<string, string> = {
+    cash: 'pm-cash', qris: 'pm-qris', transfer: 'pm-transfer',
+    debit: 'pm-debit', credit: 'pm-credit',
+  }
+  return map[method?.toLowerCase()] || 'pm-cash'
+}
+
+const getItemCount = (t: any) =>
+  t.items_count ?? t.itemCount ?? t.items?.length ?? 0
 
 const fetchShiftData = async () => {
   try {
@@ -89,13 +107,13 @@ const handleTransactionSaved = async () => {
 }
 
 useSwipeNavigation({ onSwipeLeft: () => router.back() })
-
 onMounted(fetchShiftData)
 </script>
 
 <template>
   <div class="page" @touchstart="handleTouchStart" @touchmove="handleTouchMove" @touchend="handleTouchEnd">
     <PullToRefreshIndicator :pull-refresh-offset="pullRefreshOffset" :is-refreshing="isRefreshing" />
+
     <!-- Sticky Header -->
     <div class="sticky-header">
       <BaseButton variant="ghost" size="sm" @click="() => router.back()">← Kembali</BaseButton>
@@ -114,12 +132,12 @@ onMounted(fetchShiftData)
       <!-- Shift Info -->
       <BaseCard>
         <div class="shift-info-header">
-          <div>
+          <div class="shift-info-left">
             <h2 class="shift-date">{{ formatDateJakarta(shift.opened_at) }}</h2>
             <p class="shift-time">
               {{ formatTimeJakarta(shift.opened_at) }}
               <span v-if="shift.status !== 'active'"> – {{ formatTimeJakarta(shift.closed_at || '') }}</span>
-              <span v-else> – sekarang</span>
+              <span v-else class="live-badge">● Live</span>
             </p>
           </div>
           <StatusBadge
@@ -128,41 +146,60 @@ onMounted(fetchShiftData)
             :variant="shift.status === 'active' ? 'success' : 'neutral'"
           />
         </div>
-        <div class="shift-detail-row">
-          <span class="detail-label">Kasir</span>
-          <span class="detail-value">{{ shift.cashier_name }}</span>
+        <div class="shift-meta-row">
+          <div class="shift-meta-item">
+            <span class="meta-label">Kasir</span>
+            <span class="meta-value">{{ shift.cashier_name }}</span>
+          </div>
+          <div class="shift-meta-item">
+            <span class="meta-label">Modal Awal</span>
+            <span class="meta-value">{{ formatRupiah(summaryStats.modalAwal) }}</span>
+          </div>
+          <div class="shift-meta-item">
+            <span class="meta-label">Total Transaksi</span>
+            <span class="meta-value">{{ summaryStats.transactionCount }} trx</span>
+          </div>
         </div>
       </BaseCard>
 
       <!-- Summary -->
       <BaseCard>
         <template #header>
-          <h3 class="section-title">Summary</h3>
+          <h3 class="section-title">Ringkasan</h3>
         </template>
         <div class="summary-grid">
           <div class="stat-card items">
-            <AppIcon name="menu" :size="22" class="stat-icon" />
+            <AppIcon name="menu" :size="20" class="stat-icon" />
             <div class="stat-content">
-              <p class="stat-label">Total Item Terjual</p>
-              <p class="stat-value">{{ summaryStats.totalItems }} <span class="stat-unit">pcs</span></p>
+              <p class="stat-label">Item Terjual</p>
+              <p class="stat-value">{{ summaryStats.totalItems }}<span class="stat-unit"> pcs</span></p>
             </div>
           </div>
           <div class="stat-card revenue">
-            <AppIcon name="banknote" :size="22" class="stat-icon" />
+            <AppIcon name="banknote" :size="20" class="stat-icon" />
             <div class="stat-content">
               <p class="stat-label">Total Revenue</p>
               <p class="stat-value">{{ formatRupiah(summaryStats.totalRevenue) }}</p>
             </div>
           </div>
-          <div class="stat-card expenses">
-            <AppIcon name="trend-down" :size="22" class="stat-icon" />
+          <div class="stat-card netto">
+            <AppIcon name="trending-up" :size="20" class="stat-icon" />
             <div class="stat-content">
-              <p class="stat-label">Total Pengeluaran</p>
+              <p class="stat-label">Net Profit</p>
+              <p class="stat-value" :class="summaryStats.totalNetto < 0 ? 'negative' : ''">
+                {{ formatRupiah(summaryStats.totalNetto) }}
+              </p>
+            </div>
+          </div>
+          <div class="stat-card expenses">
+            <AppIcon name="trend-down" :size="20" class="stat-icon" />
+            <div class="stat-content">
+              <p class="stat-label">Pengeluaran</p>
               <p class="stat-value">{{ formatRupiah(summaryStats.totalExpenses) }}</p>
             </div>
           </div>
           <div class="stat-card discount">
-            <AppIcon name="percent" :size="22" class="stat-icon" />
+            <AppIcon name="percent" :size="20" class="stat-icon" />
             <div class="stat-content">
               <p class="stat-label">Total Diskon</p>
               <p class="stat-value">{{ formatRupiah(summaryStats.totalDiscount) }}</p>
@@ -174,16 +211,17 @@ onMounted(fetchShiftData)
       <!-- Transactions -->
       <BaseCard>
         <template #header>
-          <h3 class="section-title">Daftar Transaksi</h3>
+          <div class="txn-list-header">
+            <h3 class="section-title">Daftar Transaksi</h3>
+            <span class="txn-count">{{ transactions.length }} transaksi</span>
+          </div>
         </template>
 
-        <!-- Empty -->
         <div v-if="transactions.length === 0" class="empty-state">
           <AppIcon name="inbox" :size="40" class="empty-icon" />
           <p>Tidak ada transaksi di shift ini</p>
         </div>
 
-        <!-- List -->
         <div v-else class="transaction-list">
           <div
             v-for="transaction in transactions"
@@ -191,47 +229,49 @@ onMounted(fetchShiftData)
             class="transaction-card"
             @click="goToTransactionDetail(transaction.id)"
           >
-            <div class="transaction-header">
-              <div class="transaction-meta">
-                <span class="transaction-number">{{ transaction.transactionNumber }}</span>
-                <span class="transaction-time">
-                  {{ formatTimeJakarta(transaction.paidAt || transaction.createdAt) }}
-                </span>
-              </div>
+            <!-- Row 1: number + time -->
+            <div class="txn-row txn-top">
+              <span class="txn-number">{{ transaction.transactionNumber }}</span>
+              <span class="txn-time">{{ formatTimeJakarta(transaction.paidAt || transaction.createdAt) }}</span>
             </div>
 
-            <div class="transaction-info-row">
-              <span class="transaction-customer" :class="{ 'is-walkin': !transaction.customerName }">
+            <!-- Row 2: customer + item count -->
+            <div class="txn-row txn-mid">
+              <span class="txn-customer" :class="{ 'is-walkin': !transaction.customerName }">
                 <AppIcon name="user" :size="11" />
                 {{ transaction.customerName || 'Walk In' }}
               </span>
-              <span class="items-preview">{{ transaction.itemCount ?? transaction.items?.length ?? 0 }} item</span>
+              <span class="items-chip">{{ getItemCount(transaction) }} item</span>
             </div>
 
-            <div class="transaction-footer">
-              <span class="transaction-total">{{ formatRupiah(transaction.total) }}</span>
-              <div class="footer-right">
+            <!-- Row 3: total + payment method + status -->
+            <div class="txn-row txn-footer">
+              <span class="txn-total">{{ formatRupiah(transaction.total) }}</span>
+              <div class="txn-footer-right">
+                <span class="pm-chip" :class="getPaymentMethodClass(transaction.paymentMethod)">
+                  {{ getPaymentMethodLabel(transaction.paymentMethod) }}
+                </span>
                 <StatusBadge
                   :status="transaction.status"
-                  :label="({ paid: 'Lunas', completed: 'Selesai', cancelled: 'Dibatalkan', open: 'Belum Lunas', partial_paid: 'Sebagian', draft: 'Draft' } as Record<string, string>)[transaction.status] || transaction.status"
+                  :label="({ paid: 'Lunas', completed: 'Selesai', cancelled: 'Batal', open: 'Belum Lunas', partial_paid: 'Sebagian', draft: 'Draft' } as Record<string, string>)[transaction.status] || transaction.status"
                   :variant="(({ paid: 'success', completed: 'success', cancelled: 'danger', open: 'info', partial_paid: 'warning', draft: 'neutral' } as Record<string, 'neutral' | 'success' | 'warning' | 'danger' | 'info'>)[transaction.status]) || 'neutral'"
                 />
-                <span class="view-detail">Detail →</span>
+                <BaseButton
+                  v-if="isShiftActive"
+                  variant="secondary"
+                  size="sm"
+                  class="edit-btn"
+                  @click.stop="openEditModal(transaction)"
+                >
+                  <AppIcon name="edit" :size="12" /> Edit
+                </BaseButton>
               </div>
-            </div>
-
-            <!-- Edit button (active shift only) -->
-            <div v-if="isShiftActive" class="transaction-edit-btn" @click.stop>
-              <BaseButton variant="secondary" size="sm" @click="openEditModal(transaction)">
-                <AppIcon name="edit" :size="13" /> Edit
-              </BaseButton>
             </div>
           </div>
         </div>
       </BaseCard>
     </div>
 
-    <!-- Edit Modal -->
     <TransactionEditModal
       v-if="showEditModal"
       :is-open="showEditModal"
@@ -303,28 +343,47 @@ onMounted(fetchShiftData)
   color: var(--color-text-secondary);
   margin: 0;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
-.shift-detail-row {
+.live-badge {
+  color: var(--brand-primary);
+  font-weight: 700;
+  font-size: var(--font-size-xs);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.4 } }
+
+.shift-meta-row {
+  display: flex;
+  gap: var(--spacing-4);
+  flex-wrap: wrap;
+}
+
+.shift-meta-item {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-1);
+  gap: 2px;
 }
 
-.detail-label {
+.meta-label {
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-.detail-value {
-  font-size: var(--font-size-base);
+.meta-value {
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   font-weight: 600;
 }
 
-/* Section title (inside BaseCard header slot) */
+/* Section title */
 .section-title {
   font-size: var(--font-size-base);
   font-weight: 700;
@@ -335,7 +394,7 @@ onMounted(fetchShiftData)
 /* Summary grid */
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: var(--spacing-3);
 }
 
@@ -348,37 +407,66 @@ onMounted(fetchShiftData)
   border: 1px solid var(--color-border-light);
   background: var(--color-bg-secondary);
   transition: border-color var(--transition-duration-short) var(--transition-standard);
+
+  &:hover { border-color: rgba(27, 107, 58, 0.25); }
+
+  &.netto {
+    grid-column: span 2;
+    background: rgba(27, 107, 58, 0.04);
+    border-color: rgba(27, 107, 58, 0.2);
+  }
 }
 
-.stat-card:hover {
-  border-color: rgba(123, 47, 190, 0.2);
-}
-
-.stat-icon { font-size: 1.25rem; flex-shrink: 0; }
+.stat-icon { flex-shrink: 0; color: var(--brand-primary); opacity: 0.8; }
 
 .stat-label {
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
   font-weight: 600;
   letter-spacing: 0.04em;
+  text-transform: uppercase;
   margin: 0;
 }
 
 .stat-value {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
   font-weight: 800;
   line-height: var(--line-height-tight);
-  margin: 0.2rem 0 0 0;
+  margin: 0.15rem 0 0 0;
   background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+
+  &.negative {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 }
 
 .stat-unit {
   font-size: var(--font-size-sm);
   font-weight: 600;
   opacity: 0.7;
+}
+
+/* Transaction list header */
+.txn-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.txn-count {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: 99px;
+  padding: 0.15rem 0.6rem;
+  font-weight: 600;
 }
 
 /* Transaction list */
@@ -390,65 +478,45 @@ onMounted(fetchShiftData)
 
 .transaction-card {
   padding: var(--spacing-3);
-  padding-right: var(--spacing-10);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   background: var(--color-surface-0);
   cursor: pointer;
   transition: all var(--transition-duration-short) var(--transition-standard);
-  position: relative;
-}
-
-.transaction-card:hover {
-  border-color: rgba(123, 47, 190, 0.2);
-  box-shadow: var(--shadow-2);
-  background: rgba(123, 47, 190, 0.02);
-}
-
-.transaction-card:active { transform: scale(0.99); }
-
-.transaction-header {
   display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+
+  &:hover {
+    border-color: rgba(27, 107, 58, 0.25);
+    box-shadow: var(--shadow-2);
+    background: rgba(27, 107, 58, 0.02);
+  }
+
+  &:active { transform: scale(0.99); }
+}
+
+.txn-row {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-2);
   gap: var(--spacing-2);
 }
 
-.transaction-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2);
-  flex: 1;
-  min-width: 0;
-}
-
-.transaction-number {
-  font-size: var(--font-size-base);
+.txn-number {
+  font-size: var(--font-size-sm);
   font-weight: 700;
   color: var(--color-text-primary);
   font-family: monospace;
-  flex-shrink: 0;
 }
 
-.transaction-time {
-  font-size: var(--font-size-sm);
+.txn-time {
+  font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
   font-weight: 500;
-  white-space: nowrap;
-  margin-left: auto;
-  flex-shrink: 0;
 }
 
-.transaction-info-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-2);
-  margin-bottom: var(--spacing-2);
-}
-
-.transaction-customer {
+.txn-customer {
   display: flex;
   align-items: center;
   gap: 0.3rem;
@@ -463,7 +531,7 @@ onMounted(fetchShiftData)
   }
 }
 
-.items-preview {
+.items-chip {
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
   background: var(--color-bg-secondary);
@@ -474,22 +542,13 @@ onMounted(fetchShiftData)
   flex-shrink: 0;
 }
 
-.transaction-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.txn-footer {
   padding-top: var(--spacing-2);
   border-top: 1px solid var(--color-border-light);
 }
 
-.footer-right {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2);
-}
-
-.transaction-total {
-  font-size: var(--font-size-lg);
+.txn-total {
+  font-size: var(--font-size-base);
   font-weight: 800;
   background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 100%);
   -webkit-background-clip: text;
@@ -497,18 +556,32 @@ onMounted(fetchShiftData)
   background-clip: text;
 }
 
-.view-detail {
-  font-size: var(--font-size-sm);
-  color: var(--color-primary);
-  font-weight: 600;
+.txn-footer-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-.transaction-edit-btn {
-  position: absolute;
-  top: 50%;
-  right: var(--spacing-3);
-  transform: translateY(-50%);
+/* Payment method chip */
+.pm-chip {
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-radius: 99px;
+  padding: 0.15rem 0.55rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+
+  &.pm-cash     { background: rgba(34, 197, 94, 0.12); color: #15803d; }
+  &.pm-qris     { background: rgba(99, 102, 241, 0.12); color: #4338ca; }
+  &.pm-transfer { background: rgba(14, 165, 233, 0.12); color: #0369a1; }
+  &.pm-debit    { background: rgba(249, 115, 22, 0.12); color: #c2410c; }
+  &.pm-credit   { background: rgba(236, 72, 153, 0.12); color: #be185d; }
 }
+
+.edit-btn { flex-shrink: 0; }
 
 /* Empty state */
 .empty-state {
@@ -522,11 +595,7 @@ onMounted(fetchShiftData)
 }
 
 .empty-icon { opacity: 0.3; color: var(--color-text-tertiary); }
-
-.empty-state p {
-  font-size: var(--font-size-base);
-  margin: 0;
-}
+.empty-state p { font-size: var(--font-size-base); margin: 0; }
 
 /* Loading */
 .loading-state {
@@ -539,16 +608,13 @@ onMounted(fetchShiftData)
   color: var(--color-text-secondary);
 }
 
-.loading-state p {
-  font-size: var(--font-size-sm);
-  margin: 0;
-}
+.loading-state p { font-size: var(--font-size-sm); margin: 0; }
 
 .spinner {
   width: 40px;
   height: 40px;
   border: 3px solid var(--color-border);
-  border-top-color: var(--color-primary);
+  border-top-color: var(--brand-primary);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
@@ -560,6 +626,7 @@ onMounted(fetchShiftData)
   .sticky-header { padding: var(--spacing-2) var(--spacing-3); }
   .container { padding: var(--spacing-3); }
   .shift-info-header { flex-direction: column; gap: var(--spacing-2); align-items: flex-start; }
-  .transaction-header { flex-direction: column; align-items: flex-start; }
+  .stat-card.netto { grid-column: span 1; }
+  .txn-footer-right { gap: var(--spacing-1); }
 }
 </style>

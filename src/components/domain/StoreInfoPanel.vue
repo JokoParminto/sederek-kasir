@@ -71,7 +71,7 @@ const getLogoPreviewUrl = (url: string) => {
     <BaseAlert v-if="uploadError" type="error" :description="uploadError" @close="uploadError = ''" />
 
     <!-- Logo -->
-    <div class="form-group">
+    <div class="form-group" style="display: none;">
       <label class="form-label">Logo Toko</label>
       <div class="logo-section">
         <div v-if="local.logo_url" class="logo-preview">

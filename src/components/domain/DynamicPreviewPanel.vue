@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import localLogoPath from '@/assets/logo/logoblack.png'
+import localLogoPath from '@/assets/logo/logo-black.png'
 
 interface Props {
   previewContent?: Record<string, any> | null
@@ -315,9 +315,9 @@ const visibilityConfig = computed(() => {
           <span>{{ formatCurrency(paymentData.subtotal) }}</span>
         </div>
 
-        <div v-if="visibilityConfig.summary.show_global_discount && parseNumber(paymentData.global_discount) > 0" class="payment-row discount">
+        <div v-if="visibilityConfig.summary.show_global_discount && (parseNumber(paymentData.discount_items) + parseNumber(paymentData.global_discount)) > 0" class="payment-row discount">
           <span>Diskon</span>
-          <span>-{{ formatCurrency(paymentData.global_discount) }}</span>
+          <span>-{{ formatCurrency(parseNumber(paymentData.discount_items) + parseNumber(paymentData.global_discount)) }}</span>
         </div>
 
         <div v-if="visibilityConfig.summary.show_payment_method && paymentData.payment_method" class="payment-row">

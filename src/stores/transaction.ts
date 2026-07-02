@@ -33,10 +33,12 @@ export const useTransactionStore = defineStore('transaction', () => {
     items.value.reduce((sum, item) => sum + item.quantity, 0)
   )
 
-  const subtotal = computed(() => calculateCartSubtotal(items.value))
+  const unpaidItems = computed(() => items.value.filter(i => i.paymentStatus !== 'paid'))
+
+  const subtotal = computed(() => calculateCartSubtotal(unpaidItems.value))
 
   const totalItemDiscounts = computed(() => {
-    return items.value.reduce((sum, item) => {
+    return unpaidItems.value.reduce((sum, item) => {
       return sum + calculateItemDiscount(item)
     }, 0)
   })
@@ -371,7 +373,9 @@ export const useTransactionStore = defineStore('transaction', () => {
         transactionApi.listTransactions({ status: 'open', limit: 20, search }),
         transactionApi.listTransactions({ status: 'partial_paid', limit: 20, search }),
       ])
-      openTransactions.value = [...openResult.data, ...partialResult.data]
+      const merged = [...openResult.data, ...partialResult.data]
+      const seen = new Set<string>()
+      openTransactions.value = merged.filter(t => seen.has(t.id) ? false : (seen.add(t.id), true))
     } catch (error) {
       openTransactions.value = []
     } finally {
@@ -461,6 +465,7 @@ export const useTransactionStore = defineStore('transaction', () => {
     isLoadingSplitBill,
 
     // Getters
+    unpaidItems,
     itemCount,
     subtotal,
     totalItemDiscounts,
@@ -493,6 +498,7 @@ export const useTransactionStore = defineStore('transaction', () => {
     // Split Bill Actions
     loadingDetailIds,
     fetchOpenTransactions,
+    clearOpenTransactions: () => { openTransactions.value = [] },
     loadTransactionDetail,
     selectTransactionForPayment,
     clearSelectedTransaction,

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import logoblackPath from '@/assets/logo/logoblack.png'
+import logoblackPath from '@/assets/logo/logo-black.png'
 
 interface LayoutConfig {
   header: {
@@ -166,7 +166,7 @@ const getPreviewData = () => {
     item_discount: items.item_discount || '1.000',
     // Payment data
     subtotal: payment.subtotal || '15.000',
-    discount: payment.global_discount || '0',
+    discount: (parseFloat(String(payment.discount_items || 0).replace(/\D/g, '')) || 0) + (parseFloat(String(payment.global_discount || 0).replace(/\D/g, '')) || 0),
     discountReason: 'Member discount',
     tax: payment.tax || '0',
     rounding: 0,
@@ -312,7 +312,7 @@ const divider = computed(() => {
           <span>{{ formatCurrency(mockData.subtotal) }}</span>
         </div>
         
-        <div v-if="config.summary.show_discount" class="summary-row discount">
+        <div v-if="config.summary.show_discount && mockData.discount > 0" class="summary-row discount">
           <span>Diskon</span>
           <span>-{{ formatCurrency(mockData.discount) }}</span>
         </div>
