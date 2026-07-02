@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import type { TransactionItem, Discount, Customer, Transaction } from '@/types'
-import { useProductStore } from '@/stores/product'
 import CartItem from './CartItem.vue'
 import OrderSummary from './OrderSummary.vue'
 import GlobalDiscountInput from './GlobalDiscountInput.vue'
@@ -69,8 +68,6 @@ const showHeldOrdersModal = computed({
     }
   },
 })
-
-const productStore = useProductStore()
 
 const total = computed(() => calculateTotal(props.items, props.globalDiscount))
 
@@ -228,11 +225,9 @@ const printHeldOrder = async (order: Transaction, fifoIndex: number) => {
   printSuccessId.value = null
   printErrorId.value   = null
   try {
-    // Pisah item: Food → kitchen, non-Food → barista
-    const isFood = (item: TransactionItem) =>
-      productStore.getProductById(item.productId)?.categoryName === 'Food'
-    const nonFoodItems = order.items.filter(i => !isFood(i))
-    const foodItems    = order.items.filter(i => isFood(i))
+    // Split item berdasarkan category_name dari response BE
+    const nonFoodItems = order.items.filter(i => i.categoryName !== 'Food')
+    const foodItems    = order.items.filter(i => i.categoryName === 'Food')
 
     const clean    = (s: string) => String(s ?? '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim()
     const queueNum = String(fifoIndex + 1).padStart(2, '0')
@@ -240,25 +235,26 @@ const printHeldOrder = async (order: Transaction, fifoIndex: number) => {
     const time     = formatTime(order.createdAt)
     const trxNum   = clean(getOrderNumber(order))
 
-    // ── Barista Ticket (item non-Food) ──
-    const printer = baristaPrinter.value
+    // ── Barista Ticket (non-Food items) ──
     if (nonFoodItems.length > 0) {
+      const printer = baristaPrinter.value
       if (printer?.connectionType === 'bluetooth' && printer.devicePath) {
         await printBaristaTicket(nonFoodItems, printer, baristaLayout.value, { queueNum, custName, time, trxNum })
       } else {
-        // Fallback HTML (semua item karena buildTicketHtml tidak support subset)
         const html = buildTicketHtml(order, fifoIndex, baristaLayout.value)
         await printDispatch.receipt(html, printer ?? null)
       }
     }
 
-    // ── Kitchen Ticket (item Food saja) ──
-    const kp = kitchenPrinter.value
-    if (foodItems.length > 0 && kp?.connectionType === 'bluetooth' && kp.devicePath) {
-      try {
-        await printKitchenTicket(foodItems, kp, kitchenLayout.value, { queueNum, custName, time })
-      } catch (ke: any) {
-        console.error('[KitchenPrint] Error:', ke?.message || ke)
+    // ── Kitchen Ticket (Food items saja, sequential setelah barista) ──
+    if (foodItems.length > 0) {
+      const kp = kitchenPrinter.value
+      if (kp?.connectionType === 'bluetooth' && kp.devicePath) {
+        try {
+          await printKitchenTicket(foodItems, kp, kitchenLayout.value, { queueNum, custName, time })
+        } catch (ke: any) {
+          console.error('[KitchenPrint] Error:', ke?.message || ke)
+        }
       }
     }
 

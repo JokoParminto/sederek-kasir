@@ -115,64 +115,73 @@ const { pullRefreshOffset, isRefreshing, handleTouchStart, handleTouchMove, hand
 })
 
 // Load data on mount
+// ── Kasir cache (localStorage) untuk stale-while-revalidate ─────────────────
+const CACHE_PRODUCTS  = 'pos_cache_products'
+const CACHE_CATEGORIES = 'pos_cache_categories'
+
+function readCache<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? (JSON.parse(raw) as T) : null
+  } catch { return null }
+}
+function writeCache(key: string, data: unknown): void {
+  try { localStorage.setItem(key, JSON.stringify(data)) } catch {}
+}
+
 onMounted(async () => {
-  // Clear cart items on page reload
   transactionStore.clearTransaction()
 
+  // ── Fase 1: Muat dari cache → UI langsung tampil ──
+  const cachedProducts   = readCache<Product[]>(CACHE_PRODUCTS)
+  const cachedCategories = readCache<any[]>(CACHE_CATEGORIES)
+  const hasCache = cachedProducts?.length && cachedCategories?.length
 
-  isLoading.value = true
+  if (hasCache) {
+    productStore.setProducts(cachedProducts!)
+    productStore.setCategories(cachedCategories!)
+    // Tidak isLoading agar UI langsung interaktif
+  } else {
+    isLoading.value = true
+  }
 
-  // Safety timeout: Force unlock after 10 seconds if something goes wrong
-  const safetyTimeout = setTimeout(() => {
+  // Shift fire-and-forget (non-blocking)
+  shiftStore.fetchCurrentShift().catch(() => {})
 
-    isLoading.value = false
-  }, 10000)
-
-  try {
-
-
-    // Load shift data (critical for displaying income)
+  // ── Fase 2: Refresh dari API di background ──
+  const refreshData = async () => {
     try {
-
-      await shiftStore.fetchCurrentShift()
-
-    } catch (shiftError) {
-
+      const [productsResponse, categories] = await Promise.all([
+        productApi.getAllProducts(),
+        productApi.getAllCategories(),
+      ])
+      productStore.setProducts(productsResponse.data)
+      productStore.setCategories(categories)
+      writeCache(CACHE_PRODUCTS, productsResponse.data)
+      writeCache(CACHE_CATEGORIES, categories)
+    } catch {
+      if (!hasCache) showError('Gagal memuat produk')
+    } finally {
+      isLoading.value = false
     }
+  }
 
-    // Load products and categories (critical)
-    const [productsResponse, categories] = await Promise.all([
-      productApi.getAllProducts(),
-      productApi.getAllCategories(),
-    ])
-
-    productStore.setProducts(productsResponse.data)
-    productStore.setCategories(categories)
-
-    // Load customers (non-critical, fail silently)
+  // Customers + held orders juga background (tidak block UI)
+  const refreshSecondary = async () => {
+    try { await loadInitialCustomers() } catch { customers.value = [] }
     try {
-      await loadInitialCustomers()
-    } catch (customerError) {
+      heldOrders.value = await heldOrderApi.getHeldOrders()
+    } catch { heldOrders.value = [] }
+  }
 
-      customers.value = []
-    }
-
-    // Load held orders (non-critical, fail silently)
-    try {
-      const loadedHeldOrders = await heldOrderApi.getHeldOrders()
-      heldOrders.value = loadedHeldOrders
-
-    } catch (heldOrderError) {
-
-      heldOrders.value = []
-    }
-
-
-  } catch (err) {
-    showError('Gagal memuat produk')
-  } finally {
-    clearTimeout(safetyTimeout)
-    isLoading.value = false
+  if (hasCache) {
+    // Ada cache → refresh di background, UI sudah aktif
+    refreshData()
+    refreshSecondary()
+  } else {
+    // Tidak ada cache → tunggu products dulu, secondary tetap background
+    await refreshData()
+    refreshSecondary()
   }
 })
 
@@ -251,18 +260,16 @@ const handleApplyGlobalDiscount = (discount: Discount) => {
 // ── Barista + Kitchen Ticket Print (untuk direct payment) ───────────────────
 
 const printBaristaKitchenTickets = async (trx: Transaction) => {
-  const clean = (s: string) => String(s ?? '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim()
+  // categoryName disediakan BE dari join dengan categories
+  const nonFoodItems = trx.items.filter(i => i.categoryName !== 'Food')
+  const foodItems    = trx.items.filter(i => i.categoryName === 'Food')
 
-  const isFood = (item: { productId: string }) =>
-    productStore.getProductById(item.productId)?.categoryName === 'Food'
-  const nonFoodItems = trx.items.filter(i => !isFood(i))
-  const foodItems    = trx.items.filter(i => isFood(i))
-
+  const c        = (s: string) => String(s ?? '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim()
   const now      = new Date(trx.createdAt || new Date())
   const time     = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   const queueNum = '01'
-  const custName = clean(trx.customerName || 'Walk In').toUpperCase()
-  const trxNum   = clean(trx.transactionNumber || '')
+  const custName = c(trx.customerName || 'Walk In').toUpperCase()
+  const trxNum   = c(trx.transactionNumber || '')
 
   const printers = await printerService.getAllPrinters()
 

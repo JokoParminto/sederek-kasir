@@ -27,6 +27,7 @@ export interface TransactionItem {
   subtotal: number
   notes?: string
   paymentStatus?: 'paid' | 'unpaid'
+  categoryName?: string
 }
 
 export interface SplitPayment {
