@@ -316,7 +316,8 @@ const printHeldOrder = async (order: Transaction, fifoIndex: number) => {
         kChunks.push(kL(kDiv), ep.align('left'))
         for (const item of order.items) {
           const qty = showQty ? `${item.quantity}x ` : ''
-          kChunks.push(ep.bold(true), kL(kClean(`${qty}${item.productName}`)), ep.bold(false))
+          const name = kClean(getItemName(item))
+          kChunks.push(ep.bold(true), kL(`${qty}${name}`), ep.bold(false))
           if (showAO && item.addOns?.length) {
             for (const a of item.addOns) kChunks.push(kL(`  + ${kClean(a.addOnName)}`))
           }

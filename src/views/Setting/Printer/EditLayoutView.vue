@@ -493,13 +493,19 @@ const handleTest = async () => {
       if (cfg.header.show_table_number && hd.table_number) chunks.push(L(`Meja: ${clean(hd.table_number)}`))
       if (cfg.header.show_transaction_date && hd.date_time) chunks.push(L(clean(hd.date_time)))
       chunks.push(L(div), escpos.align('left'))
-      if (items.item_name) {
-        const qty = cfg.item.show_item_quantity ? `${items.quantity || 1}x ` : ''
-        chunks.push(escpos.bold(true), L(clean(`${qty}${items.item_name}`)), escpos.bold(false))
-        if (cfg.item.show_item_addons && items.add_ons?.length) {
-          for (const a of items.add_ons) chunks.push(L(`  + ${clean(a.name)}`))
+      const sampleItems = items.item_name
+        ? [{ name: items.item_name, quantity: items.quantity || 1, notes: items.notes || '', add_ons: items.add_ons || [] }]
+        : [
+            { name: 'Cappuccino Venti', quantity: 2, notes: 'Less sweet', add_ons: [{ name: 'Oat Milk' }, { name: 'Extra Shot' }] },
+            { name: 'Matcha Latte',     quantity: 1, notes: '',           add_ons: [] },
+          ]
+      for (const si of sampleItems) {
+        const qty = cfg.item.show_item_quantity ? `${si.quantity}x ` : ''
+        chunks.push(escpos.bold(true), L(clean(`${qty}${si.name}`)), escpos.bold(false))
+        if (cfg.item.show_item_addons && si.add_ons?.length) {
+          for (const a of si.add_ons) chunks.push(L(`  + ${clean(a.name)}`))
         }
-        if (cfg.item.show_item_notes && items.notes) chunks.push(L(`  > ${clean(items.notes)}`))
+        if (cfg.item.show_item_notes && si.notes) chunks.push(L(`  > ${clean(si.notes)}`))
       }
       chunks.push(L(div), escpos.align('center'))
       if (cfg.footer.show_preparation_reminder && cfg.footer.preparation_text) {
