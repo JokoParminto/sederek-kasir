@@ -5,7 +5,7 @@ import StatusBadge from '@/components/base/StatusBadge.vue'
 import BaseCard from '@/components/base/BaseCard.vue'
 import DynamicPreviewPanel from '@/components/domain/DynamicPreviewPanel.vue'
 import LivePreviewComponentBarista from '@/components/domain/LivePreviewComponentBarista.vue'
-import { previewToBaristaConfig } from '@/services/printerlayout.service'
+import { previewToBaristaConfig, previewToKitchenConfig } from '@/services/printerlayout.service'
 
 const props = defineProps<{
   type: string
@@ -49,6 +49,7 @@ const connectionLabel = computed(() => {
 })
 
 const baristaConfig = computed(() => previewToBaristaConfig(props.previewContent))
+const kitchenConfig = computed(() => previewToKitchenConfig(props.previewContent))
 </script>
 
 <template>
@@ -103,13 +104,20 @@ const baristaConfig = computed(() => previewToBaristaConfig(props.previewContent
     <!-- Preview (collapsible) -->
     <div v-if="previewContent" class="preview-section">
       <button class="preview-toggle" @click="showPreview = !showPreview">
-        <span>{{ showPreview ? '▲' : '▼' }} Preview {{ type === 'barista' ? 'Tiket' : 'Struk' }}</span>
+        <span>{{ showPreview ? '▲' : '▼' }} Preview {{ type === 'barista' ? 'Tiket Barista' : type === 'kitchen' ? 'Tiket Dapur' : 'Struk' }}</span>
       </button>
       <div v-if="showPreview" class="preview-wrapper">
         <LivePreviewComponentBarista
           v-if="type === 'barista'"
           :config="baristaConfig"
           :preview-content="previewContent"
+          :printer-specs="{ paper_width: typeof paperSize === 'number' ? paperSize : undefined, connection_type: connectionType ?? null }"
+        />
+        <LivePreviewComponentBarista
+          v-else-if="type === 'kitchen'"
+          :config="kitchenConfig"
+          :preview-content="previewContent"
+          :printer-specs="{ paper_width: typeof paperSize === 'number' ? paperSize : undefined, connection_type: connectionType ?? null }"
         />
         <DynamicPreviewPanel
           v-else

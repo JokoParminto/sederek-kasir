@@ -62,6 +62,9 @@ export interface BaristaLayoutConfig {
   }
 }
 
+// Kitchen ticket has the same structure as barista ticket
+export type KitchenLayoutConfig = BaristaLayoutConfig
+
 /**
  * Backend Template Format (from DB)
  */
@@ -75,8 +78,8 @@ interface BackendTemplate {
 }
 
 export interface LayoutLoadResult {
-  layout: CustomerLayoutConfig | BaristaLayoutConfig
-  templateType: 'receipt' | 'barista'
+  layout: CustomerLayoutConfig | BaristaLayoutConfig | KitchenLayoutConfig
+  templateType: 'receipt' | 'barista' | 'kitchen'
   previewContent: Record<string, any> | null
   rawContent: Record<string, any> | null
   printerSpecs: Record<string, any> | null
@@ -164,6 +167,10 @@ export function previewToBaristaConfig(previewContent: Record<string, any> | nul
       preparation_text: footer.preparation_text || 'Siapkan sesuai resep standar',
     }
   }
+}
+
+export function previewToKitchenConfig(previewContent: Record<string, any> | null | undefined): KitchenLayoutConfig {
+  return previewToBaristaConfig(previewContent)
 }
 
 /**
@@ -272,6 +279,18 @@ function baristaLayoutToBackend(config: BaristaLayoutConfig): BackendTemplate {
   }
 }
 
+function backendToKitchenLayout(backend: BackendTemplate): KitchenLayoutConfig {
+  return backendToBaristaLayout(backend)
+}
+
+function kitchenLayoutToBackend(config: KitchenLayoutConfig): BackendTemplate {
+  return baristaLayoutToBackend(config)
+}
+
+function getDefaultKitchenLayout(): KitchenLayoutConfig {
+  return getDefaultBaristaLayout()
+}
+
 /**
  * Get default Customer Layout Config
  */
@@ -349,21 +368,22 @@ export const printLayoutService = {
   async getLayoutByPrinterId(printerId: string): Promise<LayoutLoadResult> {
     try {
       const templateResponse = await printLayoutApi.getTemplateByPrinterId(printerId)
-      const tmplType = templateResponse.template_type as 'receipt' | 'barista'
+      const tmplType = templateResponse.template_type as 'receipt' | 'barista' | 'kitchen'
       const previewContent = templateResponse.preview_content || null
       const rawContent = templateResponse.content || null
       const printerSpecs = {
         paper_width: templateResponse.paper_width || 80,
-        font_size: templateResponse.font_size || 12
+        font_size: templateResponse.font_size || 12,
+        connection_type: templateResponse.connection_type || null,
       }
 
-      let layout: CustomerLayoutConfig | BaristaLayoutConfig
+      let layout: CustomerLayoutConfig | BaristaLayoutConfig | KitchenLayoutConfig
       if (tmplType === 'receipt') {
         layout = backendToCustomerLayout(templateResponse.content as BackendTemplate)
-      } else if (tmplType === 'barista') {
-        layout = backendToBaristaLayout(templateResponse.content as BackendTemplate)
+      } else if (tmplType === 'kitchen') {
+        layout = backendToKitchenLayout(templateResponse.content as BackendTemplate)
       } else {
-        throw new Error(`Invalid template type: ${tmplType}`)
+        layout = backendToBaristaLayout(templateResponse.content as BackendTemplate)
       }
 
       return { layout, templateType: tmplType, previewContent, rawContent, printerSpecs }
@@ -394,8 +414,8 @@ export const printLayoutService = {
     */
   async saveLayoutByPrinterId(
     printerId: string,
-    templateType: 'receipt' | 'barista',
-    config: CustomerLayoutConfig | BaristaLayoutConfig | Record<string, any>
+    templateType: 'receipt' | 'barista' | 'kitchen',
+    config: CustomerLayoutConfig | BaristaLayoutConfig | KitchenLayoutConfig | Record<string, any>
   ): Promise<LayoutSaveResult> {
     const isRawBackendFormat = (config as any).sections !== undefined
 
@@ -404,6 +424,8 @@ export const printLayoutService = {
       backendContent = config as BackendTemplate
     } else if (templateType === 'receipt') {
       backendContent = customerLayoutToBackend(config as CustomerLayoutConfig)
+    } else if (templateType === 'kitchen') {
+      backendContent = kitchenLayoutToBackend(config as KitchenLayoutConfig)
     } else {
       backendContent = baristaLayoutToBackend(config as BaristaLayoutConfig)
     }
@@ -432,5 +454,10 @@ export const printLayoutService = {
   /** Convert BaristaLayoutConfig → backend sections (untuk update rawContent lokal) */
   toBaristaSections(config: BaristaLayoutConfig): Record<string, any> {
     return baristaLayoutToBackend(config).sections
+  },
+
+  /** Convert KitchenLayoutConfig → backend sections */
+  toKitchenSections(config: KitchenLayoutConfig): Record<string, any> {
+    return kitchenLayoutToBackend(config).sections
   },
 }

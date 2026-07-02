@@ -5,10 +5,12 @@ import type { BaristaLayoutConfig } from '@/services/printerlayout.service'
 interface Props {
   config: BaristaLayoutConfig
   previewContent?: Record<string, any> | null
+  printerSpecs?: Record<string, any> | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  previewContent: null
+  previewContent: null,
+  printerSpecs: null,
 })
 
 const getPreviewData = () => {
@@ -60,15 +62,47 @@ const getItemName = (name: string) => {
   return name.length > 20 ? name.substring(0, 17) + '...' : name
 }
 
-// 58mm thermal: ~22 char wide in Courier 0.75rem
-const divider = '─'.repeat(22)
+// ── Paper size computeds ──
+const paperWidthMm = computed(() => {
+  const w = props.printerSpecs?.paper_width
+  return w && w > 0 ? w : 58
+})
+
+// chars-per-line: ~0.38 ch/mm at Courier 0.72rem on 96dpi screen
+const dividerLen = computed(() => {
+  const mm = paperWidthMm.value
+  if (mm >= 80) return 32
+  if (mm >= 72) return 27
+  if (mm >= 58) return 22
+  return Math.max(14, Math.round(mm * 0.38))
+})
+
+const divider = computed(() => '─'.repeat(dividerLen.value))
+
+// ticket max-width in px: mm → inches → px at 96dpi, add padding
+const ticketMaxPx = computed(() => Math.floor((paperWidthMm.value / 25.4) * 96) + 24)
+
+const connectionLabel = computed(() => {
+  const ct = props.printerSpecs?.connection_type
+  if (!ct) return null
+  if (ct === 'bluetooth') return 'BT'
+  if (ct === 'network') return 'LAN'
+  if (ct === 'usb') return 'USB'
+  return ct
+})
+
+const previewLabel = computed(() => {
+  const parts = [`${paperWidthMm.value}mm`]
+  if (connectionLabel.value) parts.push(connectionLabel.value)
+  return `Preview · ${parts.join(' · ')}`
+})
 </script>
 
 <template>
   <div class="live-preview-wrapper">
-    <div class="preview-label">Preview Tiket Barista · 58mm</div>
+    <div class="preview-label">{{ previewLabel }}</div>
 
-    <div class="ticket">
+    <div class="ticket" :style="{ maxWidth: ticketMaxPx + 'px' }">
 
       <!-- ── Queue Number ── -->
       <div v-if="config.header.show_order_number" class="ticket-queue-number">
@@ -149,7 +183,6 @@ const divider = '─'.repeat(22)
 /* ── Ticket container ── */
 .ticket {
   width: 100%;
-  max-width: 210px;
   background: white;
   border: 2px dashed #d1d5db;
   border-radius: 6px;

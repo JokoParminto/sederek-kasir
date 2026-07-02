@@ -5,7 +5,7 @@ export interface Printer {
   id: string
   name: string
   description?: string
-  printer_type: 'receipt' | 'barista' | 'label' | 'a4' | 'network'
+  printer_type: 'receipt' | 'barista' | 'kitchen' | 'label' | 'a4' | 'network'
   connection_type: 'usb' | 'network' | 'bluetooth'
   ip_address?: string
   port_number?: number
@@ -52,7 +52,7 @@ export interface PrinterJob {
 
 export interface PrinterRouting {
   id: string
-  print_type: 'customer_receipt' | 'barista_ticket' | 'label'
+  print_type: 'customer_receipt' | 'barista_ticket' | 'kitchen_ticket' | 'label'
   printer_id: string
   template_id?: string
   is_enabled: boolean

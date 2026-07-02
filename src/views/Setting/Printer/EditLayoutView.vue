@@ -10,7 +10,7 @@ import LivePreviewComponentBarista from '@/components/domain/LivePreviewComponen
 import StoreInfoPanel from '@/components/domain/StoreInfoPanel.vue'
 import ConfirmDeleteModal from '@/components/domain/ConfirmDeleteModal.vue'
 import { printLayoutService } from '@/services/printerlayout.service'
-import type { CustomerLayoutConfig, BaristaLayoutConfig, LayoutLoadResult } from '@/services/printerlayout.service'
+import type { CustomerLayoutConfig, BaristaLayoutConfig, KitchenLayoutConfig, LayoutLoadResult } from '@/services/printerlayout.service'
 import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
@@ -28,24 +28,21 @@ const printerId = computed(() => {
 // Get template type from route name or params
 const templateType = computed(() => {
   const currentRoute = router.currentRoute.value
-  if (currentRoute.name === 'print-layout-barista') {
-    return 'barista'
-  }
-  return 'receipt'  // Receipt template type (mapped from 'customer' UI type)
+  if (currentRoute.name === 'print-layout-barista') return 'barista'
+  if (currentRoute.name === 'print-layout-kitchen') return 'kitchen'
+  return 'receipt'
 })
 
 const templateName = computed(() => {
-  return templateType.value === 'receipt' ? 'Customer Receipt' : 'Barista Ticket'
+  return templateType.value === 'receipt' ? 'Customer Receipt' : templateType.value === 'kitchen' ? 'Kitchen Ticket' : 'Barista Ticket'
 })
 
 const templateNameLower = computed(() => {
-  return templateType.value === 'receipt' ? 'customer receipt' : 'barista ticket'
+  return templateType.value === 'receipt' ? 'customer receipt' : templateType.value === 'kitchen' ? 'kitchen ticket' : 'barista ticket'
 })
 
 const headerTitleText = computed(() => {
-   return templateType.value === 'receipt' 
-     ? 'layout Customer Receipt' 
-     : 'layout Barista Ticket'
+  return templateType.value === 'receipt' ? 'layout Customer Receipt' : templateType.value === 'kitchen' ? 'layout Kitchen Ticket' : 'layout Barista Ticket'
 })
 
 // State - Customer config
@@ -104,6 +101,25 @@ const baristaConfig = ref<BaristaLayoutConfig>({
   }
 })
 
+// State - Kitchen config (same structure as barista)
+const kitchenConfig = ref<KitchenLayoutConfig>({
+  header: {
+    show_order_number: true,
+    show_customer_name: true,
+    show_table_number: true,
+    show_transaction_date: true,
+  },
+  item: {
+    show_item_quantity: true,
+    show_item_addons: true,
+    show_item_notes: true,
+  },
+  footer: {
+    show_preparation_reminder: true,
+    preparation_text: 'Siapkan segera',
+  }
+})
+
 const hasChanges = ref(false)
 const isSaving = ref(false)
 const isLoading = ref(false)
@@ -149,7 +165,9 @@ const onStoreInfoChange = (val: typeof storeInfo.value) => {
 
 // Get current config based on template type
 const currentConfig = computed(() => {
-  return templateType.value === 'receipt' ? customerConfig.value : baristaConfig.value
+  if (templateType.value === 'receipt') return customerConfig.value
+  if (templateType.value === 'kitchen') return kitchenConfig.value
+  return baristaConfig.value
 })
 
 // Patch previewContent visibility flags live (receipt only)
@@ -284,6 +302,31 @@ const onBaristaConfigChange = (config: BaristaLayoutConfig) => {
   hasChanges.value = true
 }
 
+// When kitchen config changes → same structure as barista
+const onKitchenConfigChange = (config: KitchenLayoutConfig) => {
+  kitchenConfig.value = config
+  if (rawContent.value?.sections) {
+    const s = rawContent.value.sections
+    if (s.header) Object.assign(s.header, {
+      show_queue_number: config.header.show_order_number,
+      show_customer_name: config.header.show_customer_name,
+      show_table_number: config.header.show_table_number,
+      show_time: config.header.show_transaction_date,
+    })
+    if (s.items) Object.assign(s.items, {
+      show_item_name: true,
+      show_quantity: config.item.show_item_quantity,
+      show_add_ons: config.item.show_item_addons,
+      show_notes: config.item.show_item_notes,
+    })
+    if (s.footer) Object.assign(s.footer, {
+      show_preparation_reminder: config.footer.show_preparation_reminder,
+      preparation_text: config.footer.preparation_text,
+    })
+  }
+  hasChanges.value = true
+}
+
 const handleResetConfirm = () => {
   isResetModalOpen.value = false
   doReset()
@@ -330,6 +373,12 @@ const doReset = () => {
         footer: {
           show_thank_you_message: true
         }
+      }
+    } else if (templateType.value === 'kitchen') {
+      kitchenConfig.value = {
+        header: { show_order_number: true, show_customer_name: true, show_table_number: true, show_transaction_date: true },
+        item: { show_item_quantity: true, show_item_addons: true, show_item_notes: true },
+        footer: { show_preparation_reminder: true, preparation_text: 'Siapkan segera' }
       }
     } else {
       baristaConfig.value = {
@@ -436,7 +485,7 @@ const handleTest = async () => {
 
     const chunks: Uint8Array[] = [escpos.init()]
 
-    if (templateType.value === 'barista') {
+    if (templateType.value === 'barista' || templateType.value === 'kitchen') {
       const cfg = currentConfig.value as typeof baristaConfig.value
       chunks.push(escpos.align('center'))
       if (cfg.header.show_order_number) {
@@ -541,7 +590,7 @@ const handleSave = async () => {
   try {
     if (!printerId.value) throw new Error('Printer ID tidak ditemukan')
 
-    const tmplType = templateType.value as 'receipt' | 'barista'
+    const tmplType = templateType.value as 'receipt' | 'barista' | 'kitchen'
     const content = rawContent.value ?? currentConfig.value
     const saved = await printLayoutService.saveLayoutByPrinterId(printerId.value, tmplType, content as any)
 
@@ -584,6 +633,8 @@ const loadLayout = async () => {
 
     if (result.templateType === 'receipt') {
       customerConfig.value = result.layout as CustomerLayoutConfig
+    } else if (result.templateType === 'kitchen') {
+      kitchenConfig.value = result.layout as KitchenLayoutConfig
     } else {
       baristaConfig.value = result.layout as BaristaLayoutConfig
     }
@@ -718,9 +769,16 @@ const handleBack = () => {
 
         <!-- Barista Config Panel -->
         <SectionConfigPanelBarista
-          v-else
+          v-else-if="templateType === 'barista'"
           :model-value="baristaConfig"
           @update:model-value="onBaristaConfigChange"
+        />
+
+        <!-- Kitchen Config Panel (same component as barista) -->
+        <SectionConfigPanelBarista
+          v-else
+          :model-value="kitchenConfig"
+          @update:model-value="onKitchenConfigChange"
         />
        </div>
 
@@ -736,9 +794,18 @@ const handleBack = () => {
 
         <!-- Barista Preview - live dari baristaConfig -->
         <LivePreviewComponentBarista
-          v-else
+          v-else-if="templateType === 'barista'"
           :config="baristaConfig"
           :preview-content="previewContent"
+          :printer-specs="printerSpecs"
+        />
+
+        <!-- Kitchen Preview - live dari kitchenConfig -->
+        <LivePreviewComponentBarista
+          v-else
+          :config="kitchenConfig"
+          :preview-content="previewContent"
+          :printer-specs="printerSpecs"
         />
        </div>
     </div>

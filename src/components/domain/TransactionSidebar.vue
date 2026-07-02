@@ -15,7 +15,7 @@ import { printerService } from '@/services/printer.service'
 import type { UiPrinter } from '@/services/printer.service'
 import { printDispatch } from '@/services/print-dispatch.service'
 import { printLayoutService } from '@/services/printerlayout.service'
-import type { BaristaLayoutConfig } from '@/services/printerlayout.service'
+import type { BaristaLayoutConfig, KitchenLayoutConfig } from '@/services/printerlayout.service'
 
 interface Props {
   items: TransactionItem[]
@@ -121,9 +121,11 @@ const getItemName = (item: any) => item.productName || item.product_name || 'Ite
 const isMemberOrder = (order: Transaction) =>
   Boolean((order as any).customerIsMember ?? (order as any).customer_is_member)
 
-// --- Barista printer + layout (loaded once on mount) ---
+// --- Barista + Kitchen printer + layout (loaded once on mount) ---
 const baristaPrinter = ref<UiPrinter | null>(null)
 const baristaLayout = ref<BaristaLayoutConfig | null>(null)
+const kitchenPrinter = ref<UiPrinter | null>(null)
+const kitchenLayout = ref<KitchenLayoutConfig | null>(null)
 const printingOrderId = ref<string | null>(null)
 const printSuccessId  = ref<string | null>(null)
 const printErrorId    = ref<string | null>(null)
@@ -137,6 +139,14 @@ onMounted(async () => {
       const result = await printLayoutService.getLayoutByPrinterId(bp.id)
       if (result.templateType === 'barista') {
         baristaLayout.value = result.layout as BaristaLayoutConfig
+      }
+    }
+    const kp = printers.find(p => p.type === 'kitchen') ?? null
+    kitchenPrinter.value = kp
+    if (kp) {
+      const result = await printLayoutService.getLayoutByPrinterId(kp.id)
+      if (result.templateType === 'kitchen') {
+        kitchenLayout.value = result.layout as KitchenLayoutConfig
       }
     }
   } catch {
@@ -282,6 +292,53 @@ const printHeldOrder = async (order: Transaction, fifoIndex: number) => {
       // ── Fallback: HTML → browser print (or network printer via printDispatch) ──
       const html = buildTicketHtml(order, fifoIndex, baristaLayout.value)
       await printDispatch.receipt(html, printer ?? null)
+    }
+
+    // ── Kitchen ticket (jika ada kitchen printer terkonfigurasi) ──
+    const kp = kitchenPrinter.value
+    if (kp?.connectionType === 'bluetooth' && kp.devicePath) {
+      try {
+        const { bluetoothPrinter: btK, escpos: ep } = await import('@/services/bluetooth-printer.service')
+        const onCorrectKitchen = await btK.isConnectedTo(kp.devicePath)
+        if (!onCorrectKitchen) {
+          if (await btK.isConnected()) await btK.disconnect()
+          await btK.connect(kp.devicePath)
+        }
+        const kCfg = kitchenLayout.value
+        const kW   = kp.paperSize ?? 58
+        const kDots = Math.floor((kW - 10) * (kp.dpi || 203) / 25.4)
+        const kCols = Math.floor(kDots / 12)
+        const kDiv  = '-'.repeat(kCols)
+        const kL    = (s: string) => ep.textLine(s)
+        const kClean = (s: string) => String(s ?? '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim()
+        const showQN  = kCfg?.header.show_order_number !== false
+        const showCN  = kCfg?.header.show_customer_name !== false
+        const showDT  = kCfg?.header.show_transaction_date !== false
+        const showQty = kCfg?.item.show_item_quantity !== false
+        const showAO  = kCfg?.item.show_item_addons !== false
+        const showNt  = kCfg?.item.show_item_notes !== false
+        const showPrep2 = kCfg?.footer.show_preparation_reminder !== false
+        const prepText2 = kCfg?.footer.preparation_text || 'Siapkan segera'
+        const kChunks: Uint8Array[] = [ep.init(), ...ep.applyFontSize(kp.fontSize), ep.align('center')]
+        if (showQN) kChunks.push(ep.bold(true), kL(`DAPUR #${String(fifoIndex + 1).padStart(2, '0')}`), ep.bold(false))
+        if (showCN && order.customerName) kChunks.push(kL(kClean(order.customerName)))
+        if (showDT) kChunks.push(kL(formatTime(order.createdAt)))
+        kChunks.push(kL(kDiv), ep.align('left'))
+        for (const item of order.items) {
+          const qty = showQty ? `${item.quantity}x ` : ''
+          kChunks.push(ep.bold(true), kL(kClean(`${qty}${item.productName}`)), ep.bold(false))
+          if (showAO && item.addOns?.length) {
+            for (const a of item.addOns) kChunks.push(kL(`  + ${kClean(a.addOnName)}`))
+          }
+          if (showNt && (item as any).notes) kChunks.push(kL(`  > ${kClean((item as any).notes)}`))
+        }
+        kChunks.push(kL(kDiv), ep.align('center'))
+        if (showPrep2) kChunks.push(kL(kClean(prepText2)))
+        kChunks.push(ep.lineFeed(3), ep.cut())
+        await btK.printRaw(ep.concat(...kChunks))
+      } catch (ke: any) {
+        console.error('[KitchenPrint] Error:', ke?.message || ke)
+      }
     }
 
     printSuccessId.value = order.id

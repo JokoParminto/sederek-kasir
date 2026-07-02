@@ -64,7 +64,7 @@ const handleConfigSave = async (config: FormDataPrinter) => {
     await printerService.updatePrinter(printerId, config)
 
     // Update print_copies on routing (best effort, non-blocking)
-    const printType = config.type === 'customer' ? 'customer_receipt' : 'barista_ticket'
+    const printType = config.type === 'customer' ? 'customer_receipt' : config.type === 'kitchen' ? 'kitchen_ticket' : 'barista_ticket'
     printerApi.updatePrinterRouting(printType, { print_copies: config.copies } as any).catch(() => {})
 
     // Re-fetch from server so local state always matches DB (device_path, ip_address, etc.)
@@ -132,13 +132,12 @@ const handleDeleteCancel = () => {
   printerToDelete.value = null
 }
 
-const handleEditLayout = (printerId: string, type: 'customer' | 'barista') => {
-
-  // NEW: Navigate to edit layout view with printerId as route param
-  // This enables per-printer template customization
+const handleEditLayout = (printerId: string, type: 'customer' | 'barista' | 'kitchen') => {
   if (type === 'customer') {
     router.push({ name: 'print-layout-receipt', params: { printerId } })
-  } else if (type === 'barista') {
+  } else if (type === 'kitchen') {
+    router.push({ name: 'print-layout-kitchen', params: { printerId } })
+  } else {
     router.push({ name: 'print-layout-barista', params: { printerId } })
   }
 }

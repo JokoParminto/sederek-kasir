@@ -161,6 +161,10 @@ const handleSave = async () => {
             <input v-model="formData.type" type="radio" value="barista" />
             <span>Barista Ticket</span>
           </label>
+          <label class="radio-label" :class="{ selected: formData.type === 'kitchen' }">
+            <input v-model="formData.type" type="radio" value="kitchen" />
+            <span>Kitchen Ticket</span>
+          </label>
         </div>
       </div>
 

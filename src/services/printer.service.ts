@@ -9,7 +9,7 @@ import { printerApi, type Printer as ApiPrinter } from '@/services/api/printer/p
  * UI Model Types (camelCase - what components use)
  */
 export interface FormDataPrinter {
-  type: 'customer' | 'barista'
+  type: 'customer' | 'barista' | 'kitchen'
   printerName: string
   description?: string
   paperSize: number | '58mm' | '80mm' | '100mm'  // Support both string and number
@@ -24,7 +24,7 @@ export interface FormDataPrinter {
 
 export interface UiPrinter {
   id: string
-  type: 'customer' | 'barista'
+  type: 'customer' | 'barista' | 'kitchen'
   printerName: string
   description?: string
   paperSize: number  // Changed to number to match API response
@@ -45,7 +45,7 @@ export interface UiPrinter {
   updatedAt?: string
   lastUsedAt?: string | null
   // Keep API fields for reference/debugging
-  printer_type?: 'receipt' | 'barista' | 'label' | 'a4' | 'network'
+  printer_type?: 'receipt' | 'barista' | 'kitchen' | 'label' | 'a4' | 'network'
   paper_width?: number
   paper_height?: number
   auto_print?: boolean
@@ -61,7 +61,7 @@ export interface UiPrinter {
  */
 function formDataToApiRequest(formData: FormDataPrinter): any {
   // Map UI type to printer_type: 'customer' → 'receipt', 'barista' → 'barista'
-  const printerType = formData.type === 'customer' ? 'receipt' : formData.type === 'barista' ? 'barista' : 'receipt'
+  const printerType = formData.type === 'customer' ? 'receipt' : formData.type === 'barista' ? 'barista' : formData.type === 'kitchen' ? 'kitchen' : 'receipt'
   
   // Convert paper size - support both string and number formats
   let paperWidth: number
@@ -103,13 +103,15 @@ function apiResponseToUiModel(apiPrinter: ApiPrinter): UiPrinter {
   
   // Map printer_type back to UI: 'receipt' → 'customer', 'barista' → 'barista'
   // For other types (label, a4, network), default to 'customer'
-  let uiType: 'customer' | 'barista' = 'customer'
+  let uiType: 'customer' | 'barista' | 'kitchen' = 'customer'
   if (printerType === 'barista') {
     uiType = 'barista'
+  } else if (printerType === 'kitchen') {
+    uiType = 'kitchen'
   } else if (printerType === 'receipt') {
     uiType = 'customer'
   } else {
-    uiType = 'customer' // Default for label, a4, network
+    uiType = 'customer'
   }
 
   return {
@@ -129,8 +131,8 @@ function apiResponseToUiModel(apiPrinter: ApiPrinter): UiPrinter {
     devicePath: apiPrinter.device_path,
     status: (apiPrinter.status === 'active' ? 'connected' : 'disconnected') as 'connected' | 'disconnected' | 'error',
     isDefault: apiPrinter.is_default || false,
-    icon: printerType === 'receipt' || printerType === 'label' ? '🧾' : '☕',
-    title: printerType === 'receipt' || printerType === 'label' ? 'CUSTOMER RECEIPT' : 'BARISTA TICKET',
+    icon: printerType === 'receipt' || printerType === 'label' ? '🧾' : printerType === 'kitchen' ? '🍳' : '☕',
+    title: printerType === 'receipt' || printerType === 'label' ? 'CUSTOMER RECEIPT' : printerType === 'kitchen' ? 'KITCHEN TICKET' : 'BARISTA TICKET',
     createdAt: apiPrinter.created_at,
     updatedAt: apiPrinter.updated_at,
     lastUsedAt: apiPrinter.last_used_at,

@@ -28,7 +28,7 @@ export interface PrinterTemplateResponse {
    template_id?: string
    template_name?: string
    template_description?: string
-   template_type: 'receipt' | 'barista'
+   template_type: 'receipt' | 'barista' | 'kitchen'
    template_is_default?: boolean
    template_is_active?: boolean
    template_created_at?: string
@@ -56,7 +56,7 @@ export interface PrinterTemplateResponse {
    preview_content?: Record<string, any>
    
     // Printer fields (from /printers/:id/template endpoint)
-    printer_type?: 'receipt' | 'barista'
+    printer_type?: 'receipt' | 'barista' | 'kitchen'
     connection_type?: string
     paper_width?: number
     font_size?: number
@@ -114,11 +114,10 @@ export const updateTemplateByPrinterId = async (
  * Note: Use getTemplateByPrinterId() for new code targeting specific printers
  */
 export const getLayoutTemplate = async (
-  templateType: 'receipt' | 'barista'
+  templateType: 'receipt' | 'barista' | 'kitchen'
 ): Promise<PrinterTemplateResponse> => {
   try {
-    // Map UI template type to API template type
-    const apiTemplateType = templateType === 'receipt' ? 'receipt' : 'barista'
+    const apiTemplateType = templateType === 'receipt' ? 'receipt' : templateType === 'kitchen' ? 'kitchen' : 'barista'
     
     const response = await apiClient.get('/printers/templates', {
       params: {
@@ -165,7 +164,7 @@ export const createLayoutTemplate = async (
   templateData: {
     name: string
     description?: string
-    template_type: 'receipt' | 'barista'
+    template_type: 'receipt' | 'barista' | 'kitchen'
     content: any
     is_default?: boolean
   }

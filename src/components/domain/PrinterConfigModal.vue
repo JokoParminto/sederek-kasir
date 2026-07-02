@@ -146,7 +146,7 @@ const handleSave = () => {
             <!-- Read-only in edit mode -->
             <div v-if="isEditMode" class="printer-display">
               <span class="printer-name">
-                {{ formData.type === 'customer' ? 'Customer Receipt' : 'Barista Ticket' }}
+                {{ formData.type === 'customer' ? 'Customer Receipt' : formData.type === 'kitchen' ? 'Kitchen Ticket' : 'Barista Ticket' }}
               </span>
             </div>
             <div v-else class="radio-options">
@@ -157,6 +157,10 @@ const handleSave = () => {
               <label class="radio-label">
                 <input v-model="formData.type" type="radio" value="barista" />
                 <span>Barista Ticket</span>
+              </label>
+              <label class="radio-label">
+                <input v-model="formData.type" type="radio" value="kitchen" />
+                <span>Kitchen Ticket</span>
               </label>
             </div>
           </div>

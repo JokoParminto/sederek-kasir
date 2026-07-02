@@ -168,6 +168,16 @@ export const routes: RouteRecordRaw[] = [
            },
          },
          {
+           path: 'print-layout/edit-kitchen/:printerId',
+           name: 'print-layout-kitchen',
+           component: () => import('@/views/Setting/Printer/EditLayoutView.vue'),
+           meta: {
+             requiresAuth: true,
+             permissions: ['printer:manage_templates'],
+             title: 'Edit Kitchen Ticket Layout',
+           },
+         },
+         {
            path: 'payment-methods',
            name: 'PaymentMethods',
            component: () => import('@/views/PaymentMethods/PaymentMethodsView.vue'),

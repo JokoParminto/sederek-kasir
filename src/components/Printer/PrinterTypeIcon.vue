@@ -1,6 +1,6 @@
 <script setup lang="ts">
 interface Props {
-  type: 'receipt' | 'barista' | 'label' | 'a4' | 'network'
+  type: 'receipt' | 'barista' | 'kitchen' | 'label' | 'a4' | 'network'
   size?: 'small' | 'medium' | 'large'
 }
 
@@ -12,6 +12,7 @@ const getIconName = (type: string) => {
   switch (type) {
     case 'receipt':  return 'receipt'
     case 'barista':  return 'coffee'
+    case 'kitchen':  return 'utensils'
     case 'label':    return 'tag'
     case 'a4':       return 'file-text'
     case 'network':  return 'globe'
@@ -23,6 +24,7 @@ const getLabel = (type: string) => {
   switch (type) {
     case 'receipt':  return 'Receipt'
     case 'barista':  return 'Barista'
+    case 'kitchen':  return 'Kitchen'
     case 'label':    return 'Label'
     case 'a4':       return 'A4'
     case 'network':  return 'Network'
