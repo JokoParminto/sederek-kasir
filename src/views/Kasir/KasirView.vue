@@ -848,7 +848,6 @@ const autoSaveRemainingHeldOrder = async () => {
         discount_global: transactionStore.globalDiscount.value,
         discount_global_type: transactionStore.globalDiscount.type,
         total: transactionStore.total,
-        payment_method: transactionStore.paymentMethod,
         version: loadedFromHeldOrderVersion.value ?? undefined,
         items: itemsData,
       })
@@ -871,18 +870,14 @@ const handlePartialCartCheckout = async (
   const checkoutData = {
     customer_id: transactionStore.selectedCustomerId,
     payment_method: paymentMethod,
-    payment_method_id: paymentMethodId,
+    payment_method_id: paymentMethodId ?? undefined,
     amount_paid: paidItems.reduce((sum, i) => sum + i.item_subtotal, 0),
     discount_global: 0,
-    discount_global_type: 'amount',
+    discount_global_type: 'amount' as const,
     items: paidCartItems.map(item => ({
       product_id: item.productId,
       product_name: item.productName,
       product_price: item.price,
-      original_price: item.originalPrice || item.price,
-      member_price: item.memberPrice || null,
-      is_member_price: item.is_member_price || false,
-      member_savings: item.memberSaving || 0,
       quantity: item.quantity,
       discount_amount: item.discount.value,
       discount_type: item.discount.type,
