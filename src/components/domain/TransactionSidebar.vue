@@ -219,8 +219,11 @@ const printHeldOrder = async (order: Transaction, fifoIndex: number) => {
     if (printer?.connectionType === 'bluetooth' && printer.devicePath) {
       // ── Direct ESC/POS to BT (same approach as EditLayoutView test print) ──
       const { bluetoothPrinter: bt, escpos } = await import('@/services/bluetooth-printer.service')
-      const already = await bt.isConnected()
-      if (!already) await bt.connect(printer.devicePath)
+      const onCorrectDevice = await bt.isConnectedTo(printer.devicePath)
+      if (!onCorrectDevice) {
+        if (await bt.isConnected()) await bt.disconnect()
+        await bt.connect(printer.devicePath)
+      }
 
       const storedWidth = printer.paperSize
       // BT printers saved before paper_width fix may have paper_width=80 despite 58mm

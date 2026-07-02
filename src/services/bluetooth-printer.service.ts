@@ -23,6 +23,10 @@ export type { BTDevice }
 
 export const isNative = Capacitor.isNativePlatform()
 
+// Track which MAC address is currently connected — prevents wrong-printer bug
+// when two BT printers are configured (e.g. barista ticket + customer receipt)
+let _connectedAddress: string | null = null
+
 export const bluetoothPrinter = {
   /** True only on Android/iOS native app */
   isAvailable: isNative,
@@ -37,20 +41,32 @@ export const bluetoothPrinter = {
   /** Connect to a device by MAC address */
   async connect(address: string): Promise<{ name: string }> {
     if (!isNative) throw new Error('Bluetooth hanya tersedia di app Android')
-    return BTPlugin.connect({ address })
+    const result = await BTPlugin.connect({ address })
+    _connectedAddress = address
+    return result
   },
 
   /** Disconnect current printer */
   async disconnect(): Promise<void> {
     if (!isNative) return
     await BTPlugin.disconnect()
+    _connectedAddress = null
   },
 
-  /** Check if currently connected */
+  /** Check if currently connected (to any device) */
   async isConnected(): Promise<boolean> {
     if (!isNative) return false
     const { connected } = await BTPlugin.isConnected()
+    if (!connected) _connectedAddress = null
     return connected
+  },
+
+  /** Check if currently connected to the specific MAC address */
+  async isConnectedTo(address: string): Promise<boolean> {
+    if (!isNative) return false
+    const { connected } = await BTPlugin.isConnected()
+    if (!connected) { _connectedAddress = null; return false }
+    return _connectedAddress === address
   },
 
   /**
