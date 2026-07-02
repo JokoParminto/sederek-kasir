@@ -121,6 +121,24 @@ const paperWidth = computed(() => {
   return props.printerSpecs?.paper_width || 80
 })
 
+// Map ESC/POS font_size (pt) to CSS rem for preview
+const previewFontSize = computed(() => {
+  const fs = props.printerSpecs?.font_size || 12
+  if (fs <= 10) return '0.60rem'
+  if (fs >= 16) return '0.90rem'
+  if (fs >= 14) return '0.82rem'
+  return '0.72rem' // 11–13: normal
+})
+
+const connectionLabel = computed(() => {
+  const ct = props.printerSpecs?.connection_type
+  if (!ct) return null
+  if (ct === 'bluetooth') return 'BT'
+  if (ct === 'network') return 'LAN'
+  if (ct === 'usb') return 'USB'
+  return ct
+})
+
 // Calculate divider length based on paper width
 // Standard 80mm thermal printer can fit ~32 characters at 12pt font
 // Narrower printers (58mm) fit ~22 characters
@@ -213,13 +231,14 @@ const visibilityConfig = computed(() => {
 <template>
   <div class="dynamic-preview-wrapper">
     <div class="preview-label">
-      Live Preview ({{ formatWholeNumber(paperWidth) }}mm)
+      Live Preview · {{ formatWholeNumber(paperWidth) }}mm<span v-if="connectionLabel"> · {{ connectionLabel }}</span>
     </div>
-    
-    <div 
-      class="receipt-container" 
-      :style="{ 
-        maxWidth: containerMaxWidth + 'px'
+
+    <div
+      class="receipt-container"
+      :style="{
+        maxWidth: containerMaxWidth + 'px',
+        fontSize: previewFontSize,
       }"
     >
       <!-- HEADER SECTION -->

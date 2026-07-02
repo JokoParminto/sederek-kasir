@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import type { TransactionItem, Discount, Customer, Transaction } from '@/types'
+import { useProductStore } from '@/stores/product'
 import CartItem from './CartItem.vue'
 import OrderSummary from './OrderSummary.vue'
 import GlobalDiscountInput from './GlobalDiscountInput.vue'
@@ -16,6 +17,7 @@ import type { UiPrinter } from '@/services/printer.service'
 import { printDispatch } from '@/services/print-dispatch.service'
 import { printLayoutService } from '@/services/printerlayout.service'
 import type { BaristaLayoutConfig, KitchenLayoutConfig } from '@/services/printerlayout.service'
+import { printBaristaTicket, printKitchenTicket } from '@/services/ticket-print.service'
 
 interface Props {
   items: TransactionItem[]
@@ -67,6 +69,8 @@ const showHeldOrdersModal = computed({
     }
   },
 })
+
+const productStore = useProductStore()
 
 const total = computed(() => calculateTotal(props.items, props.globalDiscount))
 
@@ -224,109 +228,35 @@ const printHeldOrder = async (order: Transaction, fifoIndex: number) => {
   printSuccessId.value = null
   printErrorId.value   = null
   try {
+    // Pisah item: Food → kitchen, non-Food → barista
+    const isFood = (item: TransactionItem) =>
+      productStore.getProductById(item.productId)?.categoryName === 'Food'
+    const nonFoodItems = order.items.filter(i => !isFood(i))
+    const foodItems    = order.items.filter(i => isFood(i))
+
+    const clean    = (s: string) => String(s ?? '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim()
+    const queueNum = String(fifoIndex + 1).padStart(2, '0')
+    const custName = clean(order.customerName || getCustomerName(order.customerId) || 'Walk In').toUpperCase()
+    const time     = formatTime(order.createdAt)
+    const trxNum   = clean(getOrderNumber(order))
+
+    // ── Barista Ticket (item non-Food) ──
     const printer = baristaPrinter.value
-
-    if (printer?.connectionType === 'bluetooth' && printer.devicePath) {
-      // ── Direct ESC/POS to BT (same approach as EditLayoutView test print) ──
-      const { bluetoothPrinter: bt, escpos } = await import('@/services/bluetooth-printer.service')
-
-      const storedWidth = printer.paperSize
-      // BT printers saved before paper_width fix may have paper_width=80 despite 58mm
-      const paperMm = (printer.connectionType === 'bluetooth' && storedWidth >= 80) ? 58 : storedWidth
-      const dpi  = printer.dpi || 203
-      const printableDots = Math.floor((paperMm - 10) * dpi / 25.4)
-      const cols = Math.floor(printableDots / 12)
-      const div  = '-'.repeat(cols)
-
-      const cfg = baristaLayout.value
-      const clean = (s: string) => String(s ?? '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim()
-      const L     = (s: string) => escpos.textLine(s)
-
-      const showQueueNum = cfg?.header.show_order_number     !== false
-      const showCustomer = cfg?.header.show_customer_name    !== false
-      const showDate     = cfg?.header.show_transaction_date !== false
-      const showQty      = cfg?.item.show_item_quantity      !== false
-      const showAddons   = cfg?.item.show_item_addons        !== false
-      const showNotes    = cfg?.item.show_item_notes         !== false
-      const showPrep     = cfg?.footer.show_preparation_reminder !== false
-      const prepText     = cfg?.footer.preparation_text || 'Siapkan sesuai resep standar'
-
-      const queueNum   = String(fifoIndex + 1).padStart(2, '0')
-      const custName   = clean(order.customerName || getCustomerName(order.customerId) || 'Walk In').toUpperCase()
-      const time       = formatTime(order.createdAt)
-      const trxNum     = clean(getOrderNumber(order))
-
-      const chunks: Uint8Array[] = [escpos.init(), ...escpos.applyFontSize(printer.fontSize), escpos.align('center')]
-      if (showQueueNum) {
-        chunks.push(escpos.bold(true), L(`#${queueNum}`), escpos.bold(false))
+    if (nonFoodItems.length > 0) {
+      if (printer?.connectionType === 'bluetooth' && printer.devicePath) {
+        await printBaristaTicket(nonFoodItems, printer, baristaLayout.value, { queueNum, custName, time, trxNum })
+      } else {
+        // Fallback HTML (semua item karena buildTicketHtml tidak support subset)
+        const html = buildTicketHtml(order, fifoIndex, baristaLayout.value)
+        await printDispatch.receipt(html, printer ?? null)
       }
-      if (showCustomer) chunks.push(L(custName))
-      chunks.push(L(showDate ? `${trxNum} - ${time}` : trxNum))
-      chunks.push(L(div), escpos.align('left'))
-
-      for (const item of order.items) {
-        const name = clean(getItemName(item))
-        const qPfx = showQty ? `${item.quantity}x ` : ''
-        chunks.push(escpos.bold(true), L(`${qPfx}${name}`), escpos.bold(false))
-        if (showNotes && (item as any).notes) {
-          chunks.push(L(`  > ${clean((item as any).notes)}`))
-        }
-        if (showAddons && item.addOns?.length) {
-          for (const a of item.addOns) {
-            const q = a.quantity > 1 ? ` x${a.quantity}` : ''
-            chunks.push(L(`  + ${clean(a.addOnName)}${q}`))
-          }
-        }
-      }
-
-      chunks.push(L(div), escpos.align('center'))
-      if (showPrep) chunks.push(L(clean(prepText)))
-      chunks.push(escpos.lineFeed(3), escpos.cut())
-      await bt.printTo(printer.devicePath, escpos.concat(...chunks))
-    } else {
-      // ── Fallback: HTML → browser print (or network printer via printDispatch) ──
-      const html = buildTicketHtml(order, fifoIndex, baristaLayout.value)
-      await printDispatch.receipt(html, printer ?? null)
     }
 
-    // ── Kitchen ticket (jika ada kitchen printer terkonfigurasi) ──
+    // ── Kitchen Ticket (item Food saja) ──
     const kp = kitchenPrinter.value
-    if (kp?.connectionType === 'bluetooth' && kp.devicePath) {
+    if (foodItems.length > 0 && kp?.connectionType === 'bluetooth' && kp.devicePath) {
       try {
-        const { bluetoothPrinter: btK, escpos: ep } = await import('@/services/bluetooth-printer.service')
-        const kCfg = kitchenLayout.value
-        const kW   = kp.paperSize ?? 58
-        const kDots = Math.floor((kW - 10) * (kp.dpi || 203) / 25.4)
-        const kCols = Math.floor(kDots / 12)
-        const kDiv  = '-'.repeat(kCols)
-        const kL    = (s: string) => ep.textLine(s)
-        const kClean = (s: string) => String(s ?? '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim()
-        const showQN  = kCfg?.header.show_order_number !== false
-        const showCN  = kCfg?.header.show_customer_name !== false
-        const showDT  = kCfg?.header.show_transaction_date !== false
-        const showQty = kCfg?.item.show_item_quantity !== false
-        const showAO  = kCfg?.item.show_item_addons !== false
-        const showNt  = kCfg?.item.show_item_notes !== false
-        const showPrep2 = kCfg?.footer.show_preparation_reminder !== false
-        const prepText2 = kCfg?.footer.preparation_text || 'Siapkan segera'
-        const kChunks: Uint8Array[] = [ep.init(), ...ep.applyFontSize(kp.fontSize), ep.align('center')]
-        if (showQN) kChunks.push(ep.bold(true), kL(`DAPUR #${String(fifoIndex + 1).padStart(2, '0')}`), ep.bold(false))
-        if (showCN && order.customerName) kChunks.push(kL(kClean(order.customerName)))
-        if (showDT) kChunks.push(kL(formatTime(order.createdAt)))
-        kChunks.push(kL(kDiv), ep.align('left'))
-        for (const item of order.items) {
-          const qty = showQty ? `${item.quantity}x ` : ''
-          const name = kClean(getItemName(item))
-          kChunks.push(ep.bold(true), kL(`${qty}${name}`), ep.bold(false))
-          if (showAO && item.addOns?.length) {
-            for (const a of item.addOns) kChunks.push(kL(`  + ${kClean(a.addOnName)}`))
-          }
-          if (showNt && (item as any).notes) kChunks.push(kL(`  > ${kClean((item as any).notes)}`))
-        }
-        kChunks.push(kL(kDiv), ep.align('center'))
-        if (showPrep2) kChunks.push(kL(kClean(prepText2)))
-        kChunks.push(ep.lineFeed(3), ep.cut())
-        await btK.printTo(kp.devicePath, ep.concat(...kChunks))
+        await printKitchenTicket(foodItems, kp, kitchenLayout.value, { queueNum, custName, time })
       } catch (ke: any) {
         console.error('[KitchenPrint] Error:', ke?.message || ke)
       }

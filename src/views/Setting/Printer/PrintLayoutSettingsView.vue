@@ -246,6 +246,7 @@ onMounted(loadPrinters)
           :printer-name="printer.printerName"
           :status="printer.status"
           :paper-size="printer.paperSize"
+          :font-size="printer.fontSize"
           :auto-print="printer.autoPrint"
           :copies="printer.copies"
           :preview-content="previewContents[printer.id] || null"

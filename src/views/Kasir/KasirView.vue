@@ -12,7 +12,8 @@ import { heldOrderApi } from '@/services/api/heldOrder.api'
 import type { Product, Discount, Customer, PaymentMethod, SplitPayment, Transaction } from '@/types'
 import { printerService } from '@/services/printer.service'
 import { printLayoutService } from '@/services/printerlayout.service'
-import type { CustomerLayoutConfig } from '@/services/printerlayout.service'
+import type { CustomerLayoutConfig, BaristaLayoutConfig, KitchenLayoutConfig } from '@/services/printerlayout.service'
+import { printBaristaTicket, printKitchenTicket } from '@/services/ticket-print.service'
 
 import ProductListSection from './components/ProductListSection.vue'
 import TransactionSidebar from '@/components/domain/TransactionSidebar.vue'
@@ -247,6 +248,51 @@ const handleApplyGlobalDiscount = (discount: Discount) => {
   transactionStore.applyGlobalDiscount(discount)
 }
 
+// ── Barista + Kitchen Ticket Print (untuk direct payment) ───────────────────
+
+const printBaristaKitchenTickets = async (trx: Transaction) => {
+  const clean = (s: string) => String(s ?? '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim()
+
+  const isFood = (item: { productId: string }) =>
+    productStore.getProductById(item.productId)?.categoryName === 'Food'
+  const nonFoodItems = trx.items.filter(i => !isFood(i))
+  const foodItems    = trx.items.filter(i => isFood(i))
+
+  const now      = new Date(trx.createdAt || new Date())
+  const time     = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  const queueNum = '01'
+  const custName = clean(trx.customerName || 'Walk In').toUpperCase()
+  const trxNum   = clean(trx.transactionNumber || '')
+
+  const printers = await printerService.getAllPrinters()
+
+  // ── Barista Ticket ──
+  if (nonFoodItems.length > 0) {
+    const bp = printers.find(p => p.type === 'barista') ?? null
+    if (bp?.connectionType === 'bluetooth' && bp.devicePath) {
+      try {
+        const res = await printLayoutService.getLayoutByPrinterId(bp.id)
+        await printBaristaTicket(nonFoodItems, bp, res.layout as BaristaLayoutConfig, { queueNum, custName, time, trxNum })
+      } catch (e: any) {
+        console.error('[BaristaTicket] Error:', e?.message || e)
+      }
+    }
+  }
+
+  // ── Kitchen Ticket ──
+  if (foodItems.length > 0) {
+    const kp = printers.find(p => p.type === 'kitchen') ?? null
+    if (kp?.connectionType === 'bluetooth' && kp.devicePath) {
+      try {
+        const res = await printLayoutService.getLayoutByPrinterId(kp.id)
+        await printKitchenTicket(foodItems, kp, res.layout as KitchenLayoutConfig, { queueNum, custName, time })
+      } catch (e: any) {
+        console.error('[KitchenTicket] Error:', e?.message || e)
+      }
+    }
+  }
+}
+
 // ── Customer Receipt Auto-Print ─────────────────────────────────────────────
 
 const printCustomerReceipt = async (trx: Transaction) => {
@@ -271,11 +317,6 @@ const printCustomerReceipt = async (trx: Transaction) => {
     const previewContent = result.previewContent
 
     const { bluetoothPrinter: bt, escpos } = await import('@/services/bluetooth-printer.service')
-    const onCorrectDevice = await bt.isConnectedTo(printer.devicePath)
-    if (!onCorrectDevice) {
-      if (await bt.isConnected()) await bt.disconnect()
-      await bt.connect(printer.devicePath)
-    }
 
     const storedWidth = printer.paperSize
     const paperMm = (printer.connectionType === 'bluetooth' && storedWidth >= 80) ? 58 : storedWidth
@@ -405,7 +446,7 @@ const printCustomerReceipt = async (trx: Transaction) => {
     }
 
     chunks.push(escpos.lineFeed(3), escpos.cut())
-    await bt.printRaw(escpos.concat(...chunks))
+    await bt.printTo(printer.devicePath, escpos.concat(...chunks))
   } catch (e: any) {
     console.error('[AutoPrint] Customer receipt print error:', e?.message || e)
     showError(`Auto-print gagal: ${e?.message || 'Cek koneksi Bluetooth printer'}`)
@@ -491,8 +532,10 @@ const handlePay = async (method: string, details?: SplitPayment | Record<string,
     showPaymentModal.value = false
     currentTransaction.value = null
 
-    // Auto-print customer receipt (fire-and-forget)
-    printCustomerReceipt(completedTransaction)
+    // Sequential: barista → kitchen → struk
+    printBaristaKitchenTickets(completedTransaction)
+      .then(() => printCustomerReceipt(completedTransaction))
+      .catch(e => console.error('[PrintChain]', e))
 
     // Clear cart and reset
     transactionStore.clearTransaction()
@@ -940,8 +983,10 @@ const handlePartialCartCheckout = async (
     cartSplitTransaction.value = transactionStore.isEmpty ? null : buildCartTransaction()
   })
 
-  // Auto-print receipt for paid items
-  printCustomerReceipt(completedTransaction)
+  // Sequential: barista → kitchen → struk
+  printBaristaKitchenTickets(completedTransaction)
+    .then(() => printCustomerReceipt(completedTransaction))
+    .catch(e => console.error('[PrintChain]', e))
 
   showSuccess(`Pembayaran berhasil! No: ${completedTransaction.transactionNumber}`)
 
@@ -997,13 +1042,12 @@ const handleRecordSplitBillPayment = async (
     const isFullyPaid = !transactionStore.openTransactions.find(t => t.id === transactionId)
     showSuccess(isFullyPaid ? 'Transaksi lunas! Semua item sudah terbayar.' : 'Pembayaran berhasil tercatat')
 
-    // Auto-print receipt for paid items
+    // Sequential: barista → kitchen → struk (untuk item yg dibayar)
     if (txnBefore && receiptItems.length > 0) {
-      printCustomerReceipt({
-        ...txnBefore,
-        items: receiptItems,
-        total: paidItems.reduce((sum, i) => sum + i.item_subtotal, 0),
-      })
+      const partialTrx = { ...txnBefore, items: receiptItems, total: paidItems.reduce((sum, i) => sum + i.item_subtotal, 0) }
+      printBaristaKitchenTickets(partialTrx)
+        .then(() => printCustomerReceipt(partialTrx))
+        .catch(e => console.error('[PrintChain]', e))
     }
 
     await refreshHeldOrders()

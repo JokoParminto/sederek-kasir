@@ -82,6 +82,15 @@ const divider = computed(() => '─'.repeat(dividerLen.value))
 // ticket max-width in px: mm → inches → px at 96dpi, add padding
 const ticketMaxPx = computed(() => Math.floor((paperWidthMm.value / 25.4) * 96) + 24)
 
+// Map ESC/POS font_size (pt) to CSS rem for preview
+const previewFontSize = computed(() => {
+  const fs = props.printerSpecs?.font_size || 12
+  if (fs <= 10) return '0.60rem'
+  if (fs >= 16) return '0.90rem'
+  if (fs >= 14) return '0.82rem'
+  return '0.72rem' // 11–13: normal
+})
+
 const connectionLabel = computed(() => {
   const ct = props.printerSpecs?.connection_type
   if (!ct) return null
@@ -102,7 +111,7 @@ const previewLabel = computed(() => {
   <div class="live-preview-wrapper">
     <div class="preview-label">{{ previewLabel }}</div>
 
-    <div class="ticket" :style="{ maxWidth: ticketMaxPx + 'px' }">
+    <div class="ticket" :style="{ maxWidth: ticketMaxPx + 'px', fontSize: previewFontSize }">
 
       <!-- ── Queue Number ── -->
       <div v-if="config.header.show_order_number" class="ticket-queue-number">

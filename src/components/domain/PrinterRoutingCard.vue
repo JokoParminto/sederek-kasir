@@ -14,6 +14,7 @@ const props = defineProps<{
   printerName: string
   status: 'connected' | 'disconnected' | 'error'
   paperSize: number | string
+  fontSize?: number
   autoPrint: boolean
   copies: number
   previewContent?: Record<string, any> | null
@@ -111,18 +112,18 @@ const kitchenConfig = computed(() => previewToKitchenConfig(props.previewContent
           v-if="type === 'barista'"
           :config="baristaConfig"
           :preview-content="previewContent"
-          :printer-specs="{ paper_width: typeof paperSize === 'number' ? paperSize : undefined, connection_type: connectionType ?? null }"
+          :printer-specs="{ paper_width: typeof paperSize === 'number' ? paperSize : undefined, font_size: fontSize, connection_type: connectionType ?? null }"
         />
         <LivePreviewComponentBarista
           v-else-if="type === 'kitchen'"
           :config="kitchenConfig"
           :preview-content="previewContent"
-          :printer-specs="{ paper_width: typeof paperSize === 'number' ? paperSize : undefined, connection_type: connectionType ?? null }"
+          :printer-specs="{ paper_width: typeof paperSize === 'number' ? paperSize : undefined, font_size: fontSize, connection_type: connectionType ?? null }"
         />
         <DynamicPreviewPanel
           v-else
           :preview-content="previewContent"
-          :printer-specs="{ paper_width: typeof paperSize === 'number' ? paperSize : undefined }"
+          :printer-specs="{ paper_width: typeof paperSize === 'number' ? paperSize : undefined, font_size: fontSize, connection_type: connectionType ?? null }"
         />
       </div>
     </div>
