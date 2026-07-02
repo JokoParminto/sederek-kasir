@@ -54,16 +54,13 @@ export const recordSplitBillPayment = async (
   }>,
   notes?: string
 ): Promise<RecordPaymentResponse> => {
+  const payload: SplitBillPaymentRequest = {
+    payment_method: paymentMethod,
+    payment_method_id: paymentMethodId || undefined,
+    paid_items: paidItems,
+    notes: notes || undefined,
+  }
   try {
-    // Build request with paid_items array
-    // Amount is CALCULATED by backend from selected items, not sent directly
-    const payload: SplitBillPaymentRequest = {
-      payment_method: paymentMethod,
-      payment_method_id: paymentMethodId || undefined,
-      paid_items: paidItems,
-      notes: notes || undefined,
-    }
-
     const response = await apiClient.post<any>(
       `/transactions/${transactionId}/payments`,
       payload

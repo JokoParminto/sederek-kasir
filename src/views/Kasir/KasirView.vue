@@ -542,21 +542,22 @@ const refreshCartFromServer = async () => {
       transactionStore.setSelectedCustomer(heldOrder.customerId, customerFound?.is_member ?? heldOrder.customerIsMember ?? false)
     }
     for (const item of (heldOrder.items ?? [])) {
-      transactionStore.addItem({
-        productId: item.productId,
-        productName: item.productName,
-        price: item.price,
-        originalPrice: item.originalPrice ?? item.price,
-        memberPrice: item.memberPrice ?? null,
-        is_member_price: item.is_member_price ?? false,
-        quantity: item.quantity,
-        discount: item.discount ?? { type: 'amount', value: 0 },
-        notes: item.notes ?? '',
-        addOns: item.addOns ?? [],
-        paymentStatus: item.paymentStatus,
-      })
+      const itemId = transactionStore.addItem(
+        item.productId,
+        item.productName,
+        item.price,
+        item.quantity,
+        item.memberPrice ?? undefined
+      )
+      const storeItem = transactionStore.items.find(i => i.id === itemId)
+      if (storeItem) {
+        storeItem.discount = item.discount ?? { type: 'amount', value: 0 }
+        storeItem.notes = item.notes ?? ''
+        storeItem.addOns = item.addOns ?? []
+        storeItem.paymentStatus = item.paymentStatus
+      }
     }
-    if (heldOrder.globalDiscount) transactionStore.setGlobalDiscount(heldOrder.globalDiscount)
+    if (heldOrder.globalDiscount) transactionStore.globalDiscount = heldOrder.globalDiscount
   } catch {
     // Offline atau held order sudah tidak ada — biarkan cart apa adanya
   }

@@ -536,7 +536,7 @@ export const transactionApi = {
 
       if (data.discount) {
         transaction.globalDiscount = {
-          type: data.discount.type === 'nominal' ? 'amount' : 'percentage',
+          type: (data.discount.type as string) === 'nominal' ? 'amount' : 'percentage',
           value: data.discount.value,
         }
       }

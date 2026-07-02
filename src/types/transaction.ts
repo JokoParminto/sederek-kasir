@@ -25,6 +25,7 @@ export interface TransactionItem {
   discount: Discount
   addOns?: CartItemAddOn[]
   subtotal: number
+  notes?: string
   paymentStatus?: 'paid' | 'unpaid'
 }
 
@@ -51,6 +52,7 @@ export interface Transaction {
   paymentDetails?: SplitPayment | Record<string, any>
   status: 'draft' | 'hold' | 'open' | 'partial_paid' | 'paid' | 'completed' | 'cancelled'
   cashierId: string
+  cashierName?: string
   createdAt: Date
   updatedAt?: Date
   paidAt?: Date
