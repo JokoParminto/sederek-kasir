@@ -42,7 +42,12 @@ const productPrice = computed(() => {
   return Number(props.product.price) || 0
 })
 
-const availableAddOns = computed(() => addOnStore.activeAddOns)
+// Hanya tampilkan addons yang linked ke produk ini (via product_addons)
+const availableAddOns = computed(() => {
+  const productAddOnIds = new Set((props.product?.addOns || []).map((a: any) => a.id))
+  if (productAddOnIds.size === 0) return []
+  return addOnStore.activeAddOns.filter(a => productAddOnIds.has(a.id))
+})
 
 const filteredAddOns = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
