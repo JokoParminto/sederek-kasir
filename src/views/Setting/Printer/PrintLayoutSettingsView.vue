@@ -61,17 +61,14 @@ const handleConfigSave = async (config: FormDataPrinter) => {
   const printerId = selectedPrinter.value.id  // capture before emit('close') nulls selectedPrinter
 
   try {
-    const updated = await printerService.updatePrinter(printerId, config)
-    const idx = printers.value.findIndex(p => p.id === printerId)
-    const existing = idx !== -1 ? printers.value[idx] : null
-    if (existing) {
-      Object.assign(existing, updated)
-      existing.copies = config.copies
-    }
+    await printerService.updatePrinter(printerId, config)
 
     // Update print_copies on routing (best effort, non-blocking)
     const printType = config.type === 'customer' ? 'customer_receipt' : 'barista_ticket'
     printerApi.updatePrinterRouting(printType, { print_copies: config.copies } as any).catch(() => {})
+
+    // Re-fetch from server so local state always matches DB (device_path, ip_address, etc.)
+    await loadPrinters()
 
     showSuccess(`${config.printerName} berhasil diperbarui`)
   } catch (error: any) {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { type FormDataPrinter } from '@/services/printer.service'
 import { useToast } from '@/composables/useToast'
@@ -45,16 +45,24 @@ const defaultForm = (): FormData => ({
 const formData = ref<FormData>(defaultForm())
 const validationError = ref('')
 
+// Prevents connectionType watcher from resetting paperSize during initial load from API
+let _initializingForm = false
+
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
+    _initializingForm = true
     formData.value = props.initialData ? { ...props.initialData } : defaultForm()
     validationError.value = ''
     btDevices.value = []
     btScanError.value = ''
+    // nextTick runs after connectionType watcher flushes, then clears the flag
+    nextTick(() => { _initializingForm = false })
   }
 })
 
 watch(() => formData.value.connectionType, (type) => {
+  // Skip auto-reset when populating form from API data (edit mode)
+  if (_initializingForm) return
   btDevices.value = []
   btScanError.value = ''
   if (type !== 'bluetooth') formData.value.devicePath = undefined

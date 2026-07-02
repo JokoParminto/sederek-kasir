@@ -77,14 +77,19 @@ function formDataToApiRequest(formData: FormDataPrinter): any {
     paperWidth = 80  // default fallback
   }
   
+  const connType = formData.connectionType || 'network'
+  const isNetwork = connType === 'network'
+  const isBluetooth = connType === 'bluetooth'
+
   return {
     name: formData.printerName,
     description: formData.description,
     printer_type: printerType,
-    connection_type: formData.connectionType || 'network',
-    ip_address: formData.ipAddress || undefined,
-    port_number: formData.portNumber || undefined,
-    device_path: formData.devicePath || undefined,
+    connection_type: connType,
+    // Explicitly null fields that don't apply to the connection type, so old values get cleared
+    ip_address: isNetwork ? (formData.ipAddress || undefined) : null,
+    port_number: isNetwork ? (formData.portNumber || undefined) : null,
+    device_path: isBluetooth ? (formData.devicePath || undefined) : null,
     paper_width: paperWidth,
     font_size: formData.fontSize || 12,
     auto_print: formData.autoPrint,
