@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useProductStore } from '@/stores/product'
 import { useAddOnStore } from '@/stores/addOn'
+import { productApi } from '@/services/api/product.api'
 import { useToast } from '@/composables/useToast'
 import type { Product } from '@/types'
 
@@ -40,10 +41,10 @@ onMounted(async () => {
   // Fetch active add-ons
   await addOnStore.fetchAddOns()
 
-  // Load product if editing
+  // Load product if editing — fetch fresh from API (not cache) so addons are up-to-date
   if (isEdit.value) {
-    const product = productStore.getProductById(productId.value)
-    if (product) {
+    try {
+      const product = await productApi.getProductById(productId.value)
       form.value = {
         categoryId: product.categoryId,
         name: product.name,
@@ -55,6 +56,9 @@ onMounted(async () => {
         status: product.status,
         addOnIds: product.addOns?.map(addon => addon.id) || [],
       }
+    } catch (err) {
+      showError('Gagal memuat data produk')
+      router.push('/product')
     }
   }
 })

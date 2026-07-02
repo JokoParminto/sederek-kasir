@@ -175,24 +175,24 @@ onMounted(async () => {
   }
 })
 
-// Handle product selection - FE ONLY (no API calls)
-const handleSelectProduct = (product: Product) => {
-  // Check if shift is active
+const handleSelectProduct = async (product: Product) => {
   if (!shiftStore.isShiftActive) {
     showError('Buka shift terlebih dahulu untuk menambah produk')
     showShiftModal.value = true
     return
   }
 
-  // Validate product is available
   if (!productStore.isProductAvailable(product.id)) {
     showError('Produk tidak tersedia atau stok habis')
     return
   }
 
-  // Show add-to-cart modal with add-ons selector
-
-  selectedProductForModal.value = product
+  // Fetch fresh dari API agar addon selalu up-to-date
+  try {
+    selectedProductForModal.value = await productApi.getProductById(product.id)
+  } catch {
+    selectedProductForModal.value = product // fallback ke cache kalau gagal
+  }
   showAddToCartModal.value = true
 }
 

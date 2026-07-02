@@ -134,6 +134,10 @@
                   <span class="label">Modal</span>
                   <span class="value negative">-{{ formatCurrency(modalAwal) }}</span>
                 </div>
+                <div v-if="netShopeeFoodIncome > 0" class="summary-row">
+                  <span class="label">Penjualan Shopee Food</span>
+                  <span class="value">{{ formatCurrency(netShopeeFoodIncome) }}</span>
+                </div>
                 <div class="summary-row total">
                   <span class="label">Pemasukan Bersih</span>
                   <span class="value">{{ formatCurrency(pemasukanBersih) }}</span>
@@ -179,8 +183,12 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useShiftStore } from '@/stores/shift'
+import { useAuthStore } from '@/stores/auth'
 import { formatCurrency } from '@/utils/formatters'
 import { shiftApi } from '@/services/api/shift.api'
+import { printerService } from '@/services/printer.service'
+import { printLayoutService } from '@/services/printerlayout.service'
+import type { CustomerLayoutConfig } from '@/services/printerlayout.service'
 
 interface Props {
   isOpen: boolean
@@ -196,6 +204,7 @@ const emit = defineEmits<Emits>()
 
 const router = useRouter()
 const shiftStore = useShiftStore()
+const authStore = useAuthStore()
 
 const actualCash = ref(0)
 const shopeeFoodAmount = ref(0)
@@ -245,14 +254,124 @@ const penjualanPos = computed(() => totalPenjualan.value - totalBelanja.value)
 const kasSeharusnya = computed(() => modalAwal.value + totalPenjualanCash.value - totalBelanja.value)
 // Total kas yang seharusnya ada = modal awal + pendapatan bersih
 const kasTotal = computed(() => modalAwal.value + penjualanPos.value)
-const pemasukanBersih = computed(() =>
-  Number(shiftSummary.value?.net_income ?? (kasTotal.value - modalAwal.value))
-)
+const pemasukanBersih = computed(() => {
+  const posNet = Number(shiftSummary.value?.net_income ?? (kasTotal.value - modalAwal.value))
+  return posNet + netShopeeFoodIncome.value
+})
 
 const selisih = computed(() => {
   if (actualCash.value === 0) return 0
   return actualCash.value - kasSeharusnya.value
 })
+
+const printShiftSummary = async () => {
+  try {
+    const printers = await printerService.getAllPrinters()
+    const printer = printers.find(p => p.type === 'customer') ?? null
+    if (!printer) return
+    if (printer.connectionType !== 'bluetooth') return
+    if (!printer.devicePath) return
+
+    const result = await printLayoutService.getLayoutByPrinterId(printer.id)
+    const cfg = result.layout as CustomerLayoutConfig
+    const previewContent = result.previewContent
+
+    const { bluetoothPrinter: bt, escpos } = await import('@/services/bluetooth-printer.service')
+    const onCorrectDevice = await bt.isConnectedTo(printer.devicePath)
+    if (!onCorrectDevice) {
+      if (await bt.isConnected()) await bt.disconnect()
+      await bt.connect(printer.devicePath)
+    }
+
+    const storedWidth = printer.paperSize
+    const paperMm = (printer.connectionType === 'bluetooth' && storedWidth >= 80) ? 58 : storedWidth
+    const dpi = printer.dpi || 203
+    const printableDots = Math.floor((paperMm - 10) * dpi / 25.4)
+    const cols = Math.floor(printableDots / 12)
+    const div = '-'.repeat(cols)
+
+    const clean = (s: string) => String(s ?? '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim()
+    const L = (s: string) => escpos.textLine(s)
+    const fmt = (n: number) => `Rp${n.toLocaleString('id-ID')}`
+    const twoCol = (left: string, right: string) => {
+      const r = clean(right).slice(0, cols - 2)
+      return clean(left).slice(0, cols - r.length - 1).padEnd(cols - r.length - 1) + ' ' + r
+    }
+
+    const sections = previewContent?.sections || {}
+    const headerArr = Array.isArray(sections.header) ? sections.header : [sections.header || {}]
+    const hd: Record<string, any> = {}
+    headerArr.forEach((f: any) => f && Object.assign(hd, f))
+    const footerSection = sections.footer || {}
+
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' })
+    const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+
+    const chunks: Uint8Array[] = [escpos.init(), ...escpos.applyFontSize(printer.fontSize), escpos.align('center')]
+
+    // Header store
+    if (cfg.header?.show_logo) {
+      try {
+        const logoDots = Math.floor(printableDots * 2 / 3)
+        const logoModule = await import('@/assets/logo/logo-black.png')
+        chunks.push(await escpos.rasterImage(logoModule.default, logoDots), escpos.lineFeed(1))
+      } catch { /* optional */ }
+    }
+    chunks.push(escpos.bold(true), L(clean(hd.store_name || 'Sederek Kopi')), escpos.bold(false))
+    if (hd.store_address) {
+      const addr = clean(hd.store_address)
+      if (addr.length <= cols) {
+        chunks.push(L(addr))
+      } else {
+        chunks.push(L(addr.slice(0, cols)), L(addr.slice(cols, cols * 2)))
+      }
+    }
+    chunks.push(L(''), escpos.bold(true), L('LAPORAN TUTUP SHIFT'), escpos.bold(false))
+    chunks.push(L(`${dateStr} ${timeStr}`))
+    chunks.push(L(`Kasir: ${clean(authStore.userName || '-')}`))
+    chunks.push(L(div), escpos.align('left'))
+
+    // Ringkasan shift
+    chunks.push(L(twoCol('Modal Awal', fmt(modalAwal.value))))
+    chunks.push(L(div))
+    chunks.push(L(twoCol('Total Penjualan', fmt(totalPenjualan.value))))
+    chunks.push(L(twoCol('  Cash', fmt(totalPenjualanCash.value))))
+    chunks.push(L(twoCol('  QRIS', fmt(totalPenjualanQris.value))))
+    chunks.push(L(div))
+    chunks.push(L(twoCol('Total Belanja', `-${fmt(totalBelanja.value)}`)))
+    chunks.push(L(div))
+    chunks.push(escpos.bold(true), L(twoCol('Pendapatan Bersih', fmt(penjualanPos.value))), escpos.bold(false))
+
+    // Shopee Food
+    if (shopeeFoodAmount.value > 0) {
+      chunks.push(L(div))
+      chunks.push(L(twoCol('Shopee Food Gross', fmt(shopeeFoodAmount.value))))
+      if (shopeeFoodDiscount.value > 0) {
+        chunks.push(L(twoCol(`Diskon ${shopeeFoodDiscount.value}%`, `-${fmt(shopeeFoodDiscountNominal.value)}`)))
+      }
+      chunks.push(L(twoCol('Shopee Food Bersih', fmt(netShopeeFoodIncome.value))))
+    }
+
+    chunks.push(L(div))
+    chunks.push(L(twoCol('Kas Seharusnya', fmt(kasSeharusnya.value))))
+    chunks.push(L(twoCol('Kas Nyata', fmt(actualCash.value))))
+    const sel = selisih.value
+    chunks.push(L(twoCol('Selisih', `${sel >= 0 ? '+' : ''}${fmt(sel)}`)))
+    chunks.push(L(div))
+    chunks.push(escpos.bold(true), L(twoCol('PEMASUKAN BERSIH', fmt(pemasukanBersih.value))), escpos.bold(false))
+
+    // Footer
+    if (cfg.footer?.show_thank_you_message && footerSection.footer_text) {
+      chunks.push(escpos.align('center'), L(''), L(clean(footerSection.footer_text)))
+    }
+
+    chunks.push(escpos.lineFeed(3), escpos.cut())
+    await bt.printRaw(escpos.concat(...chunks))
+  } catch (e: any) {
+    console.error('[ShiftPrint] Error:', e?.message || e)
+  }
+}
 
 const handleCloseShift = async () => {
   if (!shiftStore.currentShift) {
@@ -280,6 +399,9 @@ const handleCloseShift = async () => {
 
     successMessage.value = 'Shift berhasil ditutup'
 
+    // Auto-print shift summary via customer receipt printer
+    await printShiftSummary()
+
     // Reset form
     actualCash.value = 0
 
@@ -287,8 +409,6 @@ const handleCloseShift = async () => {
     setTimeout(() => {
       emit('close')
       emit('closed')
-      // Optionally redirect to a report page or back to kasir
-      // router.push('/kasir')
     }, 1500)
   } catch (error) {
 
