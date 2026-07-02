@@ -36,7 +36,7 @@ const handleTouchEnd = (e: TouchEvent) => {
   const threshold = getSwipeThreshold()
   const w = windowWidth.value
 
-  if (w < 960) {
+  if (w < 768) {
     // Mobile: swipe-right from left edge → open drawer
     if (diff > threshold && touchStartX.value < 40) showDrawer.value = true
     if (diff < -threshold && showDrawer.value) showDrawer.value = false
@@ -86,7 +86,7 @@ onBeforeUnmount(() => {
 // Calculate main content left margin based on sidebar state
 const mainMarginLeft = computed(() => {
   const w = windowWidth.value
-  if (w < 960) return '0'  // mobile: no sidebar
+  if (w < 768) return '0'  // mobile: no sidebar
   if (w < 1280) {
     // tablet: collapsed sidebar = 52px (--spacing-sidebar-tablet)
     return authStore.sidebarExpanded ? 'var(--spacing-sidebar)' : 'var(--spacing-sidebar-tablet)'
@@ -176,8 +176,8 @@ const mainMarginLeft = computed(() => {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Mobile + tablet portrait (<960px): column layout, no sidebar */
-@media (max-width: 959px) {
+/* Mobile (<768px): column layout, no sidebar */
+@media (max-width: 767px) {
   .app-layout {
     flex-direction: column;
   }
@@ -187,8 +187,8 @@ const mainMarginLeft = computed(() => {
   }
 }
 
-/* Tablet landscape (960–1279px): sidebar visible (collapsed), row layout */
-@media (min-width: 960px) and (max-width: 1279px) {
+/* Tablet landscape (768–1279px): sidebar visible (collapsed), row layout */
+@media (min-width: 768px) and (max-width: 1279px) {
   .app-layout {
     flex-direction: row;
   }

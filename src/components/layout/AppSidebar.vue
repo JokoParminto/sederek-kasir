@@ -117,16 +117,16 @@ const handleDrawerOverlayClick = () => {
 }
 
 const handleNavItemClick = () => {
-  // Close drawer on mobile/tablet when navigating (< 960px)
-  if (window.innerWidth < 960) {
+  // Close drawer on mobile when navigating (< 768px)
+  if (window.innerWidth < 768) {
     emit('update:showDrawer', false)
   }
 }
 
-// Auto-collapse sidebar at tablet landscape (960–1279px)
+// Auto-collapse sidebar at tablet landscape (768–1279px)
 const autoCollapseTablet = () => {
   const w = window.innerWidth
-  if (w >= 960 && w < 1280 && authStore.sidebarExpanded) {
+  if (w >= 768 && w < 1280 && authStore.sidebarExpanded) {
     authStore.toggleSidebar()
   }
 }
@@ -134,7 +134,7 @@ const autoCollapseTablet = () => {
 // Watch screen resize
 const handleResize = () => {
   const w = window.innerWidth
-  if (w >= 960) emit('update:showDrawer', false)
+  if (w >= 768) emit('update:showDrawer', false)
   autoCollapseTablet()
 }
 
@@ -310,8 +310,8 @@ onUnmounted(() => {
   overflow: hidden;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.06);
 
-  /* Hide on mobile / tablet portrait (< 960px) — drawer handles those */
-  @media (max-width: 959px) {
+  /* Hide on mobile (< 768px) — drawer handles those */
+  @media (max-width: 767px) {
     display: none;
   }
 }
@@ -530,8 +530,8 @@ onUnmounted(() => {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 
-  /* Show only on screens < 960px (mobile, tablet portrait, tablet landscape) */
-  @media (min-width: 960px) {
+  /* Show only on screens < 768px (mobile) */
+  @media (min-width: 768px) {
     display: none;
   }
 
@@ -586,8 +586,8 @@ onUnmounted(() => {
   background: var(--color-text-secondary);
 }
 
-/* ========== TABLET LANDSCAPE (960–1279px): compact icon-only sidebar ========== */
-@media (min-width: 960px) and (max-width: 1279px) {
+/* ========== TABLET LANDSCAPE (768–1279px): compact icon-only sidebar ========== */
+@media (min-width: 768px) and (max-width: 1279px) {
   .sidebar--collapsed {
     width: var(--spacing-sidebar-tablet);
   }
