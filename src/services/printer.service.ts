@@ -78,7 +78,6 @@ function formDataToApiRequest(formData: FormDataPrinter): any {
   }
   
   const connType = formData.connectionType || 'network'
-  const isNetwork = connType === 'network'
   const isBluetooth = connType === 'bluetooth'
 
   return {
@@ -86,9 +85,8 @@ function formDataToApiRequest(formData: FormDataPrinter): any {
     description: formData.description,
     printer_type: printerType,
     connection_type: connType,
-    // Explicitly null fields that don't apply to the connection type, so old values get cleared
-    ip_address: isNetwork ? (formData.ipAddress || undefined) : null,
-    port_number: isNetwork ? (formData.portNumber || undefined) : null,
+    // ip_address + port_number columns were dropped in migration 033 — do not send
+    // device_path only exists for bluetooth; clear it when switching to other types
     device_path: isBluetooth ? (formData.devicePath || undefined) : null,
     paper_width: paperWidth,
     font_size: formData.fontSize || 12,
