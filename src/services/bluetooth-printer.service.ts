@@ -70,13 +70,28 @@ export const bluetoothPrinter = {
   },
 
   /**
-   * Send raw ESC/POS bytes to the printer.
-   * Pass a Uint8Array built by your ESC/POS encoder.
+   * Send raw ESC/POS bytes to the currently connected printer.
+   * Caller must ensure correct device is connected first.
    */
   async printRaw(bytes: Uint8Array): Promise<void> {
     if (!isNative) throw new Error('Bluetooth hanya tersedia di app Android')
     const b64 = btoa(String.fromCharCode(...bytes))
     await BTPlugin.print({ data: b64 })
+  },
+
+  /**
+   * Connect to the target MAC address (if not already connected) then print.
+   * If currently connected to a *different* device, disconnects first.
+   * Use this instead of manually managing connect/disconnect across callers.
+   */
+  async printTo(address: string, bytes: Uint8Array): Promise<void> {
+    if (!isNative) throw new Error('Bluetooth hanya tersedia di app Android')
+    const onTarget = await this.isConnectedTo(address)
+    if (!onTarget) {
+      if (await this.isConnected()) await this.disconnect()
+      await this.connect(address)
+    }
+    await this.printRaw(bytes)
   },
 }
 

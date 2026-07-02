@@ -277,11 +277,6 @@ const printShiftSummary = async () => {
     const previewContent = result.previewContent
 
     const { bluetoothPrinter: bt, escpos } = await import('@/services/bluetooth-printer.service')
-    const onCorrectDevice = await bt.isConnectedTo(printer.devicePath)
-    if (!onCorrectDevice) {
-      if (await bt.isConnected()) await bt.disconnect()
-      await bt.connect(printer.devicePath)
-    }
 
     const storedWidth = printer.paperSize
     const paperMm = (printer.connectionType === 'bluetooth' && storedWidth >= 80) ? 58 : storedWidth
@@ -367,7 +362,7 @@ const printShiftSummary = async () => {
     }
 
     chunks.push(escpos.lineFeed(3), escpos.cut())
-    await bt.printRaw(escpos.concat(...chunks))
+    await bt.printTo(printer.devicePath, escpos.concat(...chunks))
   } catch (e: any) {
     console.error('[ShiftPrint] Error:', e?.message || e)
   }

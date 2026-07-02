@@ -427,8 +427,6 @@ const handleTest = async () => {
       return
     }
     const { bluetoothPrinter, escpos } = await import('@/services/bluetooth-printer.service')
-    const already = await bluetoothPrinter.isConnected()
-    if (!already) await bluetoothPrinter.connect(p.device_path)
 
     // BT printers saved before paper_width fix may have paper_width=80 despite being 58mm.
     const storedWidth = p.paper_width ?? 58
@@ -575,7 +573,7 @@ const handleTest = async () => {
     }
 
     chunks.push(escpos.lineFeed(3), escpos.cut())
-    await bluetoothPrinter.printRaw(escpos.concat(...chunks))
+    await bluetoothPrinter.printTo(p.device_path, escpos.concat(...chunks))
     showSuccess('Test print berhasil dikirim ke printer')
   } catch (e: any) {
     showError(`Test print gagal: ${e?.message || 'periksa koneksi printer'}`)

@@ -229,11 +229,6 @@ const printHeldOrder = async (order: Transaction, fifoIndex: number) => {
     if (printer?.connectionType === 'bluetooth' && printer.devicePath) {
       // ── Direct ESC/POS to BT (same approach as EditLayoutView test print) ──
       const { bluetoothPrinter: bt, escpos } = await import('@/services/bluetooth-printer.service')
-      const onCorrectDevice = await bt.isConnectedTo(printer.devicePath)
-      if (!onCorrectDevice) {
-        if (await bt.isConnected()) await bt.disconnect()
-        await bt.connect(printer.devicePath)
-      }
 
       const storedWidth = printer.paperSize
       // BT printers saved before paper_width fix may have paper_width=80 despite 58mm
@@ -287,7 +282,7 @@ const printHeldOrder = async (order: Transaction, fifoIndex: number) => {
       chunks.push(L(div), escpos.align('center'))
       if (showPrep) chunks.push(L(clean(prepText)))
       chunks.push(escpos.lineFeed(3), escpos.cut())
-      await bt.printRaw(escpos.concat(...chunks))
+      await bt.printTo(printer.devicePath, escpos.concat(...chunks))
     } else {
       // ── Fallback: HTML → browser print (or network printer via printDispatch) ──
       const html = buildTicketHtml(order, fifoIndex, baristaLayout.value)
@@ -299,11 +294,6 @@ const printHeldOrder = async (order: Transaction, fifoIndex: number) => {
     if (kp?.connectionType === 'bluetooth' && kp.devicePath) {
       try {
         const { bluetoothPrinter: btK, escpos: ep } = await import('@/services/bluetooth-printer.service')
-        const onCorrectKitchen = await btK.isConnectedTo(kp.devicePath)
-        if (!onCorrectKitchen) {
-          if (await btK.isConnected()) await btK.disconnect()
-          await btK.connect(kp.devicePath)
-        }
         const kCfg = kitchenLayout.value
         const kW   = kp.paperSize ?? 58
         const kDots = Math.floor((kW - 10) * (kp.dpi || 203) / 25.4)
@@ -335,7 +325,7 @@ const printHeldOrder = async (order: Transaction, fifoIndex: number) => {
         kChunks.push(kL(kDiv), ep.align('center'))
         if (showPrep2) kChunks.push(kL(kClean(prepText2)))
         kChunks.push(ep.lineFeed(3), ep.cut())
-        await btK.printRaw(ep.concat(...kChunks))
+        await btK.printTo(kp.devicePath, ep.concat(...kChunks))
       } catch (ke: any) {
         console.error('[KitchenPrint] Error:', ke?.message || ke)
       }

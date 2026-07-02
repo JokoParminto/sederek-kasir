@@ -60,12 +60,8 @@ export const printDispatch = {
    */
   async receipt(html: string, printer?: UiPrinter | null): Promise<void> {
     if (printer?.connectionType === 'bluetooth' && printer.devicePath && bluetoothPrinter.isAvailable) {
-      const connected = await bluetoothPrinter.isConnected()
-      if (!connected) {
-        await bluetoothPrinter.connect(printer.devicePath)
-      }
       const bytes = htmlToEscpos(html, printer.paperSize ?? 58)
-      await bluetoothPrinter.printRaw(bytes)
+      await bluetoothPrinter.printTo(printer.devicePath, bytes)
     } else {
       browserPrint(html)
     }
@@ -78,9 +74,7 @@ export const printDispatch = {
   async escpos(bytes: Uint8Array, printer?: UiPrinter | null): Promise<void> {
     if (!bluetoothPrinter.isAvailable) return
     if (printer?.connectionType === 'bluetooth' && printer.devicePath) {
-      const connected = await bluetoothPrinter.isConnected()
-      if (!connected) await bluetoothPrinter.connect(printer.devicePath)
-      await bluetoothPrinter.printRaw(bytes)
+      await bluetoothPrinter.printTo(printer.devicePath, bytes)
     }
   },
 
