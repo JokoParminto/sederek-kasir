@@ -451,7 +451,6 @@ const handlePhoneInput = (event: Event) => {
   display: flex;
   gap: 0.4rem;
 }
-
 .tier-pill {
   display: flex;
   flex-direction: column;
@@ -459,33 +458,37 @@ const handlePhoneInput = (event: Event) => {
   gap: 0.15rem;
   padding: 0.55rem 0.5rem;
   border-radius: 10px;
-  border: 1.5px solid rgba(123, 47, 190, 0.12);
-  background: white;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: border-color 0.15s, background 0.15s;
   flex: 1;
-
-  &:hover { border-color: rgba(123, 47, 190, 0.3); background: #faf5ff; }
+  font-family: inherit;
 }
-
+.tier-pill:hover { border-color: #94a3b8; background: #f8fafc; }
 .tier-pill-icon {
   font-size: 0.85rem;
   font-weight: 700;
   line-height: 1;
-  color: var(--color-text-secondary);
+  color: #94a3b8;
 }
-
 .tier-pill-label {
   font-size: 0.65rem;
   font-weight: 600;
-  color: var(--color-text-secondary);
+  color: #94a3b8;
 }
-
-.tier-pill--active.tier-pill--none    { border-color: #94a3b8; background: #f1f5f9; .tier-pill-icon, .tier-pill-label { color: #475569; } }
-.tier-pill--active.tier-pill--umum   { border-color: #16a34a; background: #f0fdf4; .tier-pill-icon { color: #16a34a; } .tier-pill-label { color: #15803d; } }
-.tier-pill--active.tier-pill--akamsi { border-color: #2563eb; background: #eff6ff; .tier-pill-icon { color: #2563eb; } .tier-pill-label { color: #1d4ed8; } }
-.tier-pill--active.tier-pill--vip    { border-color: #7c3aed; background: #fdf4ff; .tier-pill-icon { color: #7c3aed; } .tier-pill-label { color: #6d28d9; } }
-
+.tier-pill--active.tier-pill--none { border-color: #94a3b8; background: #f1f5f9; }
+.tier-pill--active.tier-pill--none .tier-pill-icon,
+.tier-pill--active.tier-pill--none .tier-pill-label { color: #475569; }
+.tier-pill--active.tier-pill--umum { border-color: #16a34a; background: #f0fdf4; }
+.tier-pill--active.tier-pill--umum .tier-pill-icon,
+.tier-pill--active.tier-pill--umum .tier-pill-label { color: #15803d; }
+.tier-pill--active.tier-pill--akamsi { border-color: #2563eb; background: #eff6ff; }
+.tier-pill--active.tier-pill--akamsi .tier-pill-icon,
+.tier-pill--active.tier-pill--akamsi .tier-pill-label { color: #1d4ed8; }
+.tier-pill--active.tier-pill--vip { border-color: #7c3aed; background: #fdf4ff; }
+.tier-pill--active.tier-pill--vip .tier-pill-icon,
+.tier-pill--active.tier-pill--vip .tier-pill-label { color: #7c3aed; }
 .status-row {
   display: flex;
   align-items: center;
@@ -493,32 +496,28 @@ const handlePhoneInput = (event: Event) => {
   padding: 0.45rem 0.7rem;
   background: #f8fafc;
   border-radius: 8px;
-  border: 1px solid rgba(123, 47, 190, 0.1);
+  border: 1px solid #e2e8f0;
 }
-
 .status-row-label {
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--color-text-secondary);
   white-space: nowrap;
 }
-
 .status-pills { display: flex; gap: 0.3rem; flex-wrap: wrap; }
-
 .status-pill {
   padding: 0.25rem 0.65rem;
   border-radius: 99px;
   font-size: 0.7rem;
   font-weight: 600;
-  border: 1.5px solid rgba(123, 47, 190, 0.12);
-  background: white;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
   cursor: pointer;
-  transition: all 0.15s ease;
-  color: var(--color-text-secondary);
-
-  &:hover { background: #faf5ff; border-color: rgba(123, 47, 190, 0.25); }
+  transition: background 0.15s, border-color 0.15s;
+  color: #94a3b8;
+  font-family: inherit;
 }
-
+.status-pill:hover { background: #f1f5f9; }
 .status-pill--active.status-pill--active   { background: #dcfce7; color: #15803d; border-color: #86efac; }
 .status-pill--active.status-pill--pending  { background: #fef9c3; color: #92400e; border-color: #fde68a; }
 .status-pill--active.status-pill--inactive { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }

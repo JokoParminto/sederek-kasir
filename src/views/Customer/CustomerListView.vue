@@ -858,94 +858,91 @@ const topSpenders = computed(() => customerStore.topCustomers.slice(0, 5))
     flex-direction: column;
     gap: 0.6rem;
   }
-
   .member-section-label {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
     color: var(--color-text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
   }
-
   .tier-pills {
     display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+    gap: 0.4rem;
   }
-
   .tier-pill {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.2rem;
-    padding: 0.55rem 0.85rem;
+    padding: 0.55rem 0.5rem;
     border-radius: 10px;
-    border: 1.5px solid var(--color-border, #e2e8f0);
-    background: white;
+    border: 1.5px solid #e2e8f0;
+    background: #fff;
     cursor: pointer;
-    transition: all 0.15s ease;
-    min-width: 72px;
+    transition: border-color 0.15s, background 0.15s;
     flex: 1;
-
-    &:hover { border-color: #94a3b8; background: #f8fafc; }
+    font-family: inherit;
   }
-
+  .tier-pill:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+  }
   .tier-pill-icon {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 700;
     line-height: 1;
+    color: #94a3b8;
   }
-
   .tier-pill-label {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 600;
-    color: var(--color-text-secondary);
+    color: #94a3b8;
   }
-
-  /* Active states per tier */
-  .tier-pill--active.tier-pill--none    { border-color: #94a3b8; background: #f1f5f9; .tier-pill-label { color: #475569; } }
-  .tier-pill--active.tier-pill--umum   { border-color: #16a34a; background: #f0fdf4; .tier-pill-icon { color: #16a34a; } .tier-pill-label { color: #15803d; } }
-  .tier-pill--active.tier-pill--akamsi { border-color: #2563eb; background: #eff6ff; .tier-pill-icon { color: #2563eb; } .tier-pill-label { color: #1d4ed8; } }
-  .tier-pill--active.tier-pill--vip    { border-color: #7c3aed; background: #fdf4ff; .tier-pill-icon { color: #7c3aed; } .tier-pill-label { color: #6d28d9; } }
+  .tier-pill--active.tier-pill--none { border-color: #94a3b8; background: #f1f5f9; }
+  .tier-pill--active.tier-pill--none .tier-pill-icon,
+  .tier-pill--active.tier-pill--none .tier-pill-label { color: #475569; }
+  .tier-pill--active.tier-pill--umum { border-color: #16a34a; background: #f0fdf4; }
+  .tier-pill--active.tier-pill--umum .tier-pill-icon,
+  .tier-pill--active.tier-pill--umum .tier-pill-label { color: #15803d; }
+  .tier-pill--active.tier-pill--akamsi { border-color: #2563eb; background: #eff6ff; }
+  .tier-pill--active.tier-pill--akamsi .tier-pill-icon,
+  .tier-pill--active.tier-pill--akamsi .tier-pill-label { color: #1d4ed8; }
+  .tier-pill--active.tier-pill--vip { border-color: #7c3aed; background: #fdf4ff; }
+  .tier-pill--active.tier-pill--vip .tier-pill-icon,
+  .tier-pill--active.tier-pill--vip .tier-pill-label { color: #7c3aed; }
 
   .status-row {
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.45rem 0.7rem;
     background: #f8fafc;
     border-radius: 8px;
-    border: 1px solid var(--color-border, #e2e8f0);
+    border: 1px solid #e2e8f0;
   }
-
   .status-row-label {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 600;
     color: var(--color-text-secondary);
     white-space: nowrap;
   }
-
   .status-pills {
     display: flex;
-    gap: 0.35rem;
-    flex-wrap: wrap;
+    gap: 0.3rem;
   }
-
   .status-pill {
-    padding: 0.28rem 0.7rem;
+    padding: 0.25rem 0.65rem;
     border-radius: 99px;
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 600;
-    border: 1.5px solid transparent;
-    background: white;
+    border: 1.5px solid #e2e8f0;
+    background: #fff;
     cursor: pointer;
-    transition: all 0.15s ease;
-    color: var(--color-text-secondary);
-    border-color: var(--color-border, #e2e8f0);
-
-    &:hover { background: #f1f5f9; }
+    transition: background 0.15s, border-color 0.15s;
+    color: #94a3b8;
+    font-family: inherit;
   }
-
+  .status-pill:hover { background: #f1f5f9; }
   .status-pill--active.status-pill--active   { background: #dcfce7; color: #15803d; border-color: #86efac; }
   .status-pill--active.status-pill--pending  { background: #fef9c3; color: #92400e; border-color: #fde68a; }
   .status-pill--active.status-pill--inactive { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
