@@ -15,6 +15,8 @@ export const useTransactionStore = defineStore('transaction', () => {
   const items = ref<TransactionItem[]>([])
   const selectedCustomerId = ref<string | null>(null)
   const selectedCustomerIsMember = ref<boolean>(false)
+  const selectedCustomerTier = ref<'umum' | 'akamsi' | 'vip' | null>(null)
+  const selectedCustomerMemberStatus = ref<'active' | 'pending' | 'inactive'>('inactive')
   const globalDiscount = ref<Discount>({ type: 'percentage', value: 0 })
   const paymentMethod = ref<PaymentMethod>('cash')
   const holdOrders = ref<Transaction[]>([])
@@ -64,7 +66,8 @@ export const useTransactionStore = defineStore('transaction', () => {
     productName: string,
     price: number,
     quantity: number = 1,
-    memberPrice?: number
+    tierMemberPrice?: number,
+    categoryName?: string
   ): string => {
 
 
@@ -79,11 +82,11 @@ export const useTransactionStore = defineStore('transaction', () => {
 
 
     
-    // Determine price based on customer
-    const hasMemberPrice = memberPrice !== undefined && memberPrice !== null
-    const useMemberPrice = selectedCustomerIsMember.value && hasMemberPrice
-    const finalPrice = useMemberPrice ? memberPrice : price
-    const memberSaving = useMemberPrice ? (price - memberPrice) * quantity : 0
+    // Tier-based pricing: KasirView computes tierMemberPrice via memberTierStore.computeDiscount
+    const activeMember = selectedCustomerIsMember.value && selectedCustomerMemberStatus.value === 'active'
+    const hasTierPrice = activeMember && tierMemberPrice !== undefined && tierMemberPrice !== null
+    const finalPrice = hasTierPrice ? tierMemberPrice! : price
+    const memberSaving = hasTierPrice ? (price - tierMemberPrice!) * quantity : 0
 
 
 
@@ -97,13 +100,14 @@ export const useTransactionStore = defineStore('transaction', () => {
       productName,
       price: finalPrice,
       originalPrice: price,
-      memberPrice: memberPrice,
-      is_member_price: useMemberPrice,
-      memberSaving: memberSaving,
+      memberPrice: hasTierPrice ? tierMemberPrice : undefined,
+      is_member_price: hasTierPrice,
+      memberSaving,
       quantity,
       discount: { type: 'percentage', value: 0 },
       addOns: [],
       subtotal: finalPrice * quantity,
+      categoryName,
     }
 
     items.value.push(newItem)
@@ -231,9 +235,12 @@ export const useTransactionStore = defineStore('transaction', () => {
 
 
     // Create new array with updated items (Vue reactivity)
-    items.value = items.value.map((item, index) => {
+    // NOTE: recalculateAllPrices uses stored memberPrice per item (set when added).
+    // Full re-compute via tier rules happens in KasirView after customer changes.
+    items.value = items.value.map((item) => {
+      const activeMember = selectedCustomerIsMember.value && selectedCustomerMemberStatus.value === 'active'
       const hasMemberPrice = !!item.memberPrice
-      const useMemberPrice = selectedCustomerIsMember.value && hasMemberPrice
+      const useMemberPrice = activeMember && hasMemberPrice
       const newPrice = useMemberPrice ? item.memberPrice! : item.originalPrice
       const newMemberSaving = useMemberPrice ? (item.originalPrice - item.memberPrice!) * item.quantity : 0
       
@@ -264,7 +271,12 @@ export const useTransactionStore = defineStore('transaction', () => {
 
   }
 
-  const setSelectedCustomer = (customerId: string | null, is_member: boolean = false): void => {
+  const setSelectedCustomer = (
+    customerId: string | null,
+    is_member: boolean = false,
+    memberType?: 'umum' | 'akamsi' | 'vip' | null,
+    memberStatus?: 'active' | 'pending' | 'inactive'
+  ): void => {
 
 
 
@@ -284,6 +296,8 @@ export const useTransactionStore = defineStore('transaction', () => {
     
     selectedCustomerId.value = customerId
     selectedCustomerIsMember.value = is_member
+    selectedCustomerTier.value = memberType ?? null
+    selectedCustomerMemberStatus.value = memberStatus ?? (is_member ? 'active' : 'inactive')
 
     if (changed && hasItems) {
       if (recalculateTimer) clearTimeout(recalculateTimer)
@@ -298,6 +312,8 @@ export const useTransactionStore = defineStore('transaction', () => {
     items.value = []
     selectedCustomerId.value = null
     selectedCustomerIsMember.value = false
+    selectedCustomerTier.value = null
+    selectedCustomerMemberStatus.value = 'inactive'
     globalDiscount.value = { type: 'percentage', value: 0 }
     paymentMethod.value = 'cash'
   }
@@ -456,6 +472,8 @@ export const useTransactionStore = defineStore('transaction', () => {
     items,
     selectedCustomerId,
     selectedCustomerIsMember,
+    selectedCustomerTier,
+    selectedCustomerMemberStatus,
     globalDiscount,
     paymentMethod,
     holdOrders,

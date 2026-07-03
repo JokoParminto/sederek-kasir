@@ -131,7 +131,7 @@ const handleAddCustomer = () => {
     <button class="chip-main" @click="openModal" :disabled="isDisabled">
       <div class="chip-avatar">{{ selectedCustomer.name.charAt(0).toUpperCase() }}</div>
       <span class="chip-name">{{ selectedCustomer.name }}</span>
-      <AppIcon v-if="selectedCustomer.is_member" name="star" :size="11" class="chip-star" />
+      <span v-if="selectedCustomer.is_member && selectedCustomer.member_status === 'active'" class="chip-tier-badge">{{ selectedCustomer.member_type?.toUpperCase() ?? 'MEMBER' }}</span>
       <span class="chip-change">Ganti</span>
     </button>
     <button v-if="!isDisabled" class="chip-clear" @click="handleSelectCustomer(null)" title="Hapus pilihan">
@@ -258,8 +258,11 @@ const handleAddCustomer = () => {
                 <div class="customer-info">
                   <div class="customer-name-row">
                     <span class="customer-name">{{ customer.name }}</span>
-                    <span v-if="customer.is_member" class="member-badge">
-                      <AppIcon name="star" :size="10" /> Member
+                    <span v-if="customer.is_member && customer.member_status === 'active'" class="member-badge" :class="`member-badge--${customer.member_type}`">
+                      {{ customer.member_type?.toUpperCase() ?? 'MEMBER' }}
+                    </span>
+                    <span v-else-if="customer.member_type && customer.member_status !== 'active'" class="member-badge member-badge--pending">
+                      {{ customer.member_type?.toUpperCase() }} (pending)
                     </span>
                   </div>
                   <span v-if="customer.phone_number" class="customer-phone">{{ customer.phone_number }}</span>
@@ -387,6 +390,7 @@ const handleAddCustomer = () => {
 }
 
 .chip-star { opacity: 0.75; flex-shrink: 0; color: #d97706; }
+.chip-tier-badge { font-size: 0.6rem; font-weight: 700; padding: 1px 6px; border-radius: 99px; background: #fdf4ff; color: #7e22ce; border: 1px solid #e9d5ff; flex-shrink: 0; }
 
 .chip-change {
   font-size: 0.68rem;
@@ -702,17 +706,20 @@ const handleAddCustomer = () => {
 .member-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.2rem;
-  padding: 0.1rem 0.4rem;
-  background: rgba(234, 179, 8, 0.12);
-  color: #92400e;
-  border: 1px solid rgba(234, 179, 8, 0.3);
+  padding: 0.1rem 0.45rem;
   border-radius: 99px;
-  font-size: 0.64rem;
+  font-size: 0.62rem;
   font-weight: 700;
   white-space: nowrap;
   flex-shrink: 0;
+  background: rgba(234, 179, 8, 0.12);
+  color: #92400e;
+  border: 1px solid rgba(234, 179, 8, 0.3);
 }
+.member-badge--umum   { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+.member-badge--akamsi { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.member-badge--vip    { background: #fdf4ff; color: #7e22ce; border-color: #e9d5ff; }
+.member-badge--pending { background: #f8fafc; color: #94a3b8; border-color: #e2e8f0; }
 
 .customer-phone {
   font-size: 0.73rem;

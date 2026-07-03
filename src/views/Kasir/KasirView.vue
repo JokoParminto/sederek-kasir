@@ -4,6 +4,7 @@ import { useTransactionStore } from '@/stores/transaction'
 import { useProductStore } from '@/stores/product'
 import { useShiftStore } from '@/stores/shift'
 import { useAuthStore } from '@/stores/auth'
+import { useMemberTierStore } from '@/stores/memberTier'
 import { useToast } from '@/composables/useToast'
 import { productApi } from '@/services/api/product.api'
 import { customerApi } from '@/services/api/customer.api'
@@ -31,6 +32,7 @@ const transactionStore = useTransactionStore()
 const productStore = useProductStore()
 const shiftStore = useShiftStore()
 const authStore = useAuthStore()
+const memberTierStore = useMemberTierStore()
 
 // Toast
 const { success: showSuccess, error: showError } = useToast()
@@ -145,8 +147,9 @@ onMounted(async () => {
     isLoading.value = true
   }
 
-  // Shift fire-and-forget (non-blocking)
+  // Shift + member tier rules fire-and-forget (non-blocking)
   shiftStore.fetchCurrentShift().catch(() => {})
+  memberTierStore.loadRules().catch(() => {})
 
   // ── Fase 2: Refresh dari API di background ──
   const refreshData = async () => {
@@ -210,14 +213,20 @@ const handleAddToCart = (productId: string, quantity: number, selectedAddOns: an
   const product = productStore.getProductById(productId)
   if (!product) return
 
-  // Pass regular price and member price separately
-  // The store will calculate which price to use based on selected customer
+  // Compute tier-based discount from member tier rules
+  const tierResult = memberTierStore.computeDiscount(
+    { id: product.id, price: product.price, categoryName: product.categoryName },
+    transactionStore.selectedCustomerTier
+  )
+  const tierMemberPrice = tierResult.discountAmount > 0 ? tierResult.finalPrice : undefined
+
   const itemId = transactionStore.addItem(
     product.id,
     product.name,
-    product.price,        // Always pass regular price
+    product.price,
     quantity,
-    product.memberPrice   // Pass member price separately
+    tierMemberPrice,
+    product.categoryName
   )
 
   // Add selected add-ons to the item
@@ -592,15 +601,26 @@ const refreshCartFromServer = async () => {
     transactionStore.clearTransaction()
     if (heldOrder.customerId) {
       const customerFound = customers.value.find(c => c.id === heldOrder.customerId)
-      transactionStore.setSelectedCustomer(heldOrder.customerId, customerFound?.is_member ?? heldOrder.customerIsMember ?? false)
+      transactionStore.setSelectedCustomer(
+        heldOrder.customerId,
+        customerFound?.is_member ?? heldOrder.customerIsMember ?? false,
+        customerFound?.member_type ?? null,
+        customerFound?.member_status ?? 'inactive'
+      )
     }
     for (const item of (heldOrder.items ?? [])) {
+      const tierResult = memberTierStore.computeDiscount(
+        { id: item.productId, price: item.originalPrice ?? item.price, categoryName: item.categoryName },
+        transactionStore.selectedCustomerTier
+      )
+      const tierMemberPrice = tierResult.discountAmount > 0 ? tierResult.finalPrice : undefined
       const itemId = transactionStore.addItem(
         item.productId,
         item.productName,
-        item.price,
+        item.originalPrice ?? item.price,
         item.quantity,
-        item.memberPrice ?? undefined
+        tierMemberPrice,
+        item.categoryName
       )
       const storeItem = transactionStore.items.find(i => i.id === itemId)
       if (storeItem) {
@@ -778,18 +798,31 @@ const handleLoadHeldOrder = async (orderId: string) => {
           updated_at: new Date(),
         } as any)
       }
-      transactionStore.setSelectedCustomer(heldOrder.customerId, isMember)
+      const customerMeta = customers.value.find(c => c.id === heldOrder.customerId)
+      transactionStore.setSelectedCustomer(
+        heldOrder.customerId,
+        isMember,
+        customerMeta?.member_type ?? null,
+        customerMeta?.member_status ?? 'inactive'
+      )
     }
 
     // Step 5: Add items to cart
 
     for (const item of heldOrder.items) {
+      const basePrice = item.originalPrice || item.price
+      const tierResult = memberTierStore.computeDiscount(
+        { id: item.productId, price: basePrice, categoryName: item.categoryName },
+        transactionStore.selectedCustomerTier
+      )
+      const tierMemberPrice = tierResult.discountAmount > 0 ? tierResult.finalPrice : undefined
       transactionStore.addItem(
         item.productId,
         item.productName,
-        item.originalPrice || item.price,  // Always pass regular price — store determines final price
+        basePrice,
         item.quantity,
-        item.memberPrice                   // Pass member price so store can apply if customer is member
+        tierMemberPrice,
+        item.categoryName
       )
 
       // Get the just-added item
@@ -1067,13 +1100,35 @@ const handleRecordSplitBillPayment = async (
   }
 }
 
+// Re-compute tier discounts for all items already in cart (after customer change)
+const reapplyTierDiscounts = () => {
+  const tier = transactionStore.selectedCustomerTier
+  transactionStore.items.forEach(item => {
+    const result = memberTierStore.computeDiscount(
+      { id: item.productId, price: item.originalPrice, categoryName: item.categoryName },
+      tier
+    )
+    item.memberPrice = result.discountAmount > 0 ? result.finalPrice : undefined
+    item.is_member_price = result.discountAmount > 0
+    item.memberSaving = result.discountAmount * item.quantity
+    item.price = result.discountAmount > 0 ? result.finalPrice : item.originalPrice
+    item.subtotal = item.price * item.quantity
+  })
+}
+
 // Handle customer selection
 const handleSelectCustomer = (customerId: string | null) => {
-  // Find customer in list to get is_member status
   const selectedCustomer = customers.value.find(c => c.id === customerId)
   const is_member = selectedCustomer?.is_member || false
+  const memberType = selectedCustomer?.member_type ?? null
+  const memberStatus = selectedCustomer?.member_status ?? 'inactive'
 
-  transactionStore.setSelectedCustomer(customerId, is_member)
+  transactionStore.setSelectedCustomer(customerId, is_member, memberType, memberStatus)
+
+  // Re-apply tier discounts to existing cart items when customer changes
+  if (customerId && is_member && memberStatus === 'active' && memberType) {
+    reapplyTierDiscounts()
+  }
 }
 
 // Handle add new customer
@@ -1090,7 +1145,12 @@ const handleAddNewCustomer = async (newCustomer: any) => {
     })
 
     customers.value.push(customer)
-    transactionStore.setSelectedCustomer(customer.id, customer.is_member || false)
+    transactionStore.setSelectedCustomer(
+      customer.id,
+      customer.is_member || false,
+      customer.member_type ?? null,
+      customer.member_status ?? 'inactive'
+    )
     showSuccess(`✓ ${customer.name} ditambahkan`)
   } catch (err) {
     showError('Gagal menambahkan customer')

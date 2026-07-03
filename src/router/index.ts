@@ -138,6 +138,16 @@ export const routes: RouteRecordRaw[] = [
            },
          },
          {
+           path: 'member-tier',
+           name: 'MemberTier',
+           component: () => import('@/views/Setting/MemberTierView.vue'),
+           meta: {
+             requiresAuth: true,
+             permissions: ['setting'],
+             title: 'Member Tier Settings',
+           },
+         },
+         {
            path: 'print-layout',
            name: 'PrintLayout',
            component: () => import('@/views/Setting/Printer/PrintLayoutSettingsView.vue'),

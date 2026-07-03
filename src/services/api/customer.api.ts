@@ -16,6 +16,8 @@ const normalizeCustomer = (data: any): Customer => {
     phone_number: data.phone_number || '',
     avatar_url: data.avatar_url || '',
     is_member: data.is_member === true,
+    member_type: data.member_type ?? null,
+    member_status: data.member_status ?? 'inactive',
     total_spending: parseFloat(data.total_spending) || 0,
     last_transaction: parseWIB(data.last_transaction),
     created_at: parseWIB(data.created_at) ?? new Date(),

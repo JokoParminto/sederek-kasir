@@ -4,6 +4,8 @@ export interface Customer {
   phone_number: string
   avatar_url: string
   is_member: boolean
+  member_type?: 'umum' | 'akamsi' | 'vip' | null
+  member_status?: 'active' | 'pending' | 'inactive'
   total_spending: number
   last_transaction?: Date
   created_at: Date

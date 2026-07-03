@@ -28,6 +28,8 @@ const form = ref({
   name: '',
   phone_number: '',
   avatar_url: DEFAULT_AVATAR,
+  member_type: null as 'umum' | 'akamsi' | 'vip' | null,
+  member_status: 'inactive' as 'active' | 'pending' | 'inactive',
 })
 
 // Error state
@@ -42,13 +44,16 @@ watch(() => props.customer, (customer) => {
       name: customer.name,
       phone_number: customer.phone_number,
       avatar_url: customer.avatar_url || DEFAULT_AVATAR,
+      member_type: customer.member_type ?? null,
+      member_status: customer.member_status ?? 'inactive',
     }
   } else {
-    // Reset form for create mode
     form.value = {
       name: '',
       phone_number: '',
       avatar_url: DEFAULT_AVATAR,
+      member_type: null,
+      member_status: 'inactive',
     }
   }
   phoneError.value = ''
@@ -87,8 +92,8 @@ const handleSubmit = async () => {
       name: form.value.name.trim(),
       phone_number: form.value.phone_number.trim(),
       avatar_url: form.value.avatar_url || DEFAULT_AVATAR,
-      is_member: false,
-      total_spending: 0,
+      member_type: form.value.member_type,
+      member_status: form.value.member_status,
     }
 
     if (isEdit.value && props.customer) {
@@ -184,6 +189,27 @@ const handlePhoneInput = (event: Event) => {
                 maxlength="2"
               />
               <p class="form-hint">Default: {{ DEFAULT_AVATAR }}</p>
+            </div>
+
+            <!-- Member Tier -->
+            <div class="form-group">
+              <label class="form-label">Tipe Member</label>
+              <select v-model="form.member_type" class="form-input">
+                <option :value="null">Bukan Member</option>
+                <option value="umum">Umum</option>
+                <option value="akamsi">Akamsi</option>
+                <option value="vip">VIP</option>
+              </select>
+            </div>
+
+            <div v-if="form.member_type" class="form-group">
+              <label class="form-label">Status Member</label>
+              <select v-model="form.member_status" class="form-input">
+                <option value="pending">Pending (belum verifikasi)</option>
+                <option value="active">Aktif</option>
+                <option value="inactive">Nonaktif</option>
+              </select>
+              <p class="form-hint">Aktif = member mendapat potongan harga saat transaksi</p>
             </div>
 
             <!-- Error Message -->

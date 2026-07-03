@@ -18,6 +18,7 @@ import {
   Printer,
   LogOut,
   CircleUser,
+  BadgeCheck,
 } from 'lucide-vue-next'
 
 interface Props {
@@ -56,6 +57,7 @@ const allNavItems = [
 
   // SETTINGS section
   { id: 'user-management', icon: UserCog, label: 'User Management', route: '/user-management', section: 'settings', permission: 'setting' },
+  { id: 'member-tier', icon: BadgeCheck, label: 'Member Tier', route: '/member-tier', section: 'settings', permission: 'setting' },
   { id: 'payment-methods', icon: CreditCard, label: 'Payment Methods', route: '/payment-methods', section: 'settings', permission: 'setting' },
   { id: 'promo-management', icon: Tag, label: 'Promo Management', route: '/promo-management', section: 'settings', permission: 'setting' },
   { id: 'print-layout', icon: Printer, label: 'Printer Management', route: '/print-layout', section: 'settings', permission: 'printer:read' },

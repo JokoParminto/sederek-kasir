@@ -38,7 +38,6 @@ const form = ref({
   description: '',
   hpp: 0,
   price: 0,
-  memberPrice: 0,
   stock: 0,
   status: 'active' as 'active' | 'inactive',
   addOnIds: [] as string[],
@@ -65,7 +64,6 @@ watch(() => props.product, (product) => {
       description: product.description,
       hpp: product.hpp || 0,
       price: product.price,
-      memberPrice: product.memberPrice || 0,
       stock: product.stock,
       status: product.status,
       addOnIds: product.addOns?.map(addon => addon.id) || [],
@@ -79,7 +77,6 @@ watch(() => props.product, (product) => {
       description: '',
       hpp: 0,
       price: 0,
-      memberPrice: 0,
       stock: 0,
       status: 'active',
       addOnIds: [],
@@ -109,13 +106,6 @@ const formatRupiahDisplay = (value: number) => {
   return formatRupiah(value)
 }
 
-const discountAmount = computed(() => {
-  if (form.value.memberPrice > 0 && form.value.price > 0) {
-    return form.value.price - form.value.memberPrice
-  }
-  return 0
-})
-
 const handleHppInput = (event: Event) => {
   const input = event.target as HTMLInputElement
   const rawValue = input.value.replace(/\D/g, '')
@@ -126,12 +116,6 @@ const handlePriceInput = (event: Event) => {
   const input = event.target as HTMLInputElement
   const rawValue = input.value.replace(/\D/g, '')
   form.value.price = rawValue ? parseInt(rawValue, 10) : 0
-}
-
-const handleMemberPriceInput = (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const rawValue = input.value.replace(/\D/g, '')
-  form.value.memberPrice = rawValue ? parseInt(rawValue, 10) : 0
 }
 
 const handleSubmit = async () => {
@@ -149,7 +133,6 @@ const handleSubmit = async () => {
       image_url: form.value.image,
       hpp: isAdmin.value ? form.value.hpp : 0, // Non-admin can't set HPP
       price: form.value.price,
-      member_price: form.value.memberPrice || null,
       stock: form.value.stock,
       status: form.value.status,
       addOnIds: form.value.addOnIds,
@@ -273,24 +256,6 @@ const { handleBackdropClick } = useModal(handleClose)
                   required
                 />
               </div>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Harga Member (Opsional)</label>
-              <input
-                :value="formatRupiahDisplay(form.memberPrice)"
-                type="text"
-                class="form-input"
-                placeholder="Kosongkan jika tidak ada harga member"
-                @input="handleMemberPriceInput"
-                :max="form.price"
-              />
-              <p v-if="form.memberPrice > 0 && form.price > 0" class="success-text">
-                <AppIcon name="check-circle" :size="13" /> Diskon: {{ formatRupiah(discountAmount) }}
-              </p>
-              <p v-if="form.memberPrice > form.price && form.memberPrice > 0" class="error-text">
-                <AppIcon name="warning" :size="13" /> Harga member tidak boleh lebih tinggi dari harga jual
-              </p>
             </div>
 
             <div class="form-group">
