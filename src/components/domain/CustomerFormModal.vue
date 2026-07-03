@@ -42,7 +42,7 @@ watch(() => props.customer, (customer) => {
   if (customer) {
     form.value = {
       name: customer.name,
-      phone_number: customer.phone_number,
+      phone_number: customer.phone_number ?? '',
       avatar_url: customer.avatar_url || DEFAULT_AVATAR,
       member_type: customer.member_type ?? null,
       member_status: customer.member_status ?? 'inactive',
@@ -60,21 +60,11 @@ watch(() => props.customer, (customer) => {
 }, { immediate: true })
 
 const validatePhoneNumber = (): boolean => {
-  const phone = form.value.phone_number.trim()
-
+  const phone = (form.value.phone_number ?? '').trim()
   if (phone && !/^\d+$/.test(phone)) {
     phoneError.value = 'Nomor telepon hanya boleh berisi angka'
     return false
   }
-
-  if (phone) {
-    const excludeId = isEdit.value && props.customer ? props.customer.id : undefined
-    if (!customerStore.isPhoneNumberUnique(phone, excludeId)) {
-      phoneError.value = 'Nomor telepon sudah terdaftar'
-      return false
-    }
-  }
-
   phoneError.value = ''
   return true
 }
