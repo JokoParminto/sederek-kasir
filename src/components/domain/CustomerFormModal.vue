@@ -196,24 +196,33 @@ const handlePhoneInput = (event: Event) => {
             </div>
 
             <!-- Member Tier -->
-            <div class="form-group">
-              <label class="form-label">Tipe Member</label>
-              <select v-model="form.member_type" class="form-input">
-                <option :value="null">Bukan Member</option>
-                <option value="umum">Umum</option>
-                <option value="akamsi">Akamsi</option>
-                <option value="vip">VIP</option>
-              </select>
-            </div>
+            <div class="member-section">
+              <label class="member-section-label">Tipe Member</label>
+              <div class="tier-pills">
+                <button type="button"
+                  v-for="opt in [{ value: null, label: 'Non', icon: '—' }, { value: 'umum', label: 'Umum', icon: 'U' }, { value: 'akamsi', label: 'Akamsi', icon: 'A' }, { value: 'vip', label: 'VIP', icon: '★' }]"
+                  :key="String(opt.value)"
+                  class="tier-pill"
+                  :class="[`tier-pill--${opt.value ?? 'none'}`, { 'tier-pill--active': form.member_type === opt.value }]"
+                  @click="form.member_type = opt.value as any"
+                >
+                  <span class="tier-pill-icon">{{ opt.icon }}</span>
+                  <span class="tier-pill-label">{{ opt.label }}</span>
+                </button>
+              </div>
 
-            <div v-if="form.member_type" class="form-group">
-              <label class="form-label">Status Member</label>
-              <select v-model="form.member_status" class="form-input">
-                <option value="pending">Pending (belum verifikasi)</option>
-                <option value="active">Aktif</option>
-                <option value="inactive">Nonaktif</option>
-              </select>
-              <p class="form-hint">Aktif = member mendapat potongan harga saat transaksi</p>
+              <div v-if="form.member_type" class="status-row">
+                <span class="status-row-label">Status:</span>
+                <div class="status-pills">
+                  <button type="button"
+                    v-for="s in [{ value: 'active', label: 'Aktif' }, { value: 'pending', label: 'Pending' }, { value: 'inactive', label: 'Nonaktif' }]"
+                    :key="s.value"
+                    class="status-pill"
+                    :class="[`status-pill--${s.value}`, { 'status-pill--active': form.member_status === s.value }]"
+                    @click="form.member_status = s.value as any"
+                  >{{ s.label }}</button>
+                </div>
+              </div>
             </div>
 
             <!-- Error Message -->
@@ -423,6 +432,96 @@ const handlePhoneInput = (event: Event) => {
     cursor: not-allowed;
   }
 }
+
+.member-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.member-section-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tier-pills {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.tier-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.55rem 0.5rem;
+  border-radius: 10px;
+  border: 1.5px solid rgba(123, 47, 190, 0.12);
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex: 1;
+
+  &:hover { border-color: rgba(123, 47, 190, 0.3); background: #faf5ff; }
+}
+
+.tier-pill-icon {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-text-secondary);
+}
+
+.tier-pill-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.tier-pill--active.tier-pill--none    { border-color: #94a3b8; background: #f1f5f9; .tier-pill-icon, .tier-pill-label { color: #475569; } }
+.tier-pill--active.tier-pill--umum   { border-color: #16a34a; background: #f0fdf4; .tier-pill-icon { color: #16a34a; } .tier-pill-label { color: #15803d; } }
+.tier-pill--active.tier-pill--akamsi { border-color: #2563eb; background: #eff6ff; .tier-pill-icon { color: #2563eb; } .tier-pill-label { color: #1d4ed8; } }
+.tier-pill--active.tier-pill--vip    { border-color: #7c3aed; background: #fdf4ff; .tier-pill-icon { color: #7c3aed; } .tier-pill-label { color: #6d28d9; } }
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid rgba(123, 47, 190, 0.1);
+}
+
+.status-row-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.status-pills { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+
+.status-pill {
+  padding: 0.25rem 0.65rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 1.5px solid rgba(123, 47, 190, 0.12);
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--color-text-secondary);
+
+  &:hover { background: #faf5ff; border-color: rgba(123, 47, 190, 0.25); }
+}
+
+.status-pill--active.status-pill--active   { background: #dcfce7; color: #15803d; border-color: #86efac; }
+.status-pill--active.status-pill--pending  { background: #fef9c3; color: #92400e; border-color: #fde68a; }
+.status-pill--active.status-pill--inactive { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
 
 /* Responsive - Mobile */
 @media (max-width: 480px) {
