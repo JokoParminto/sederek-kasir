@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 import type { Product } from '@/types'
 import { formatRupiah } from '@/utils/formatters'
+import { useMemberTierStore } from '@/stores/memberTier'
+import { useTransactionStore } from '@/stores/transaction'
 
 interface Props {
   product: Product
@@ -35,16 +37,20 @@ const stockLabel = computed(() =>
   isAvailable.value ? null : 'Habis'
 )
 
-const displayPrice = computed(() => {
-  if (props.is_customer_member && props.product.memberPrice) {
-    return props.product.memberPrice
-  }
-  return props.product.price
-})
+const memberTierStore = useMemberTierStore()
+const transactionStore = useTransactionStore()
 
-const isMemberPriceApplied = computed(() =>
-  props.is_customer_member && !!props.product.memberPrice
-)
+// Tier-based discount untuk product ini
+const tierDiscount = computed(() => {
+  const activeMember = transactionStore.selectedCustomerIsMember &&
+    transactionStore.selectedCustomerMemberStatus === 'active'
+  if (!activeMember || !transactionStore.selectedCustomerTier) return null
+  const result = memberTierStore.computeDiscount(
+    { id: props.product.id, price: props.product.price, categoryName: props.product.categoryName },
+    transactionStore.selectedCustomerTier
+  )
+  return result.discountAmount > 0 ? result : null
+})
 </script>
 
 <template>
@@ -75,18 +81,12 @@ const isMemberPriceApplied = computed(() =>
     <!-- Product Info -->
     <div class="product-info">
       <h3 class="product-name">{{ product.name }}</h3>
-      <!-- If customer is member and product has member price -->
-      <div v-if="isMemberPriceApplied" class="price-container-member">
-        <p class="product-price-original">{{ formatRupiah(product.price) }}</p>
-        <p class="product-price-member">{{ formatRupiah(displayPrice) }}</p>
-        <span class="member-price-badge">Member Price</span>
-      </div>
-      <!-- Regular price display -->
-      <p v-else class="product-price">{{ formatRupiah(displayPrice) }}</p>
-      <!-- Member price hint for regular customers -->
-      <p v-if="!isMemberPriceApplied && product.memberPrice" class="member-price-hint">
-        <AppIcon name="star" :size="11" /> {{ formatRupiah(product.memberPrice) }} for member
-      </p>
+      <!-- Harga selalu tampil normal, tanpa coret -->
+      <p class="product-price">{{ formatRupiah(product.price) }}</p>
+      <!-- Badge tier discount jika customer aktif member -->
+      <span v-if="tierDiscount" class="tier-discount-badge">
+        Hemat {{ formatRupiah(tierDiscount.discountAmount) }}
+      </span>
     </div>
 
     <!-- Hover Indicator -->
@@ -266,50 +266,17 @@ const isMemberPriceApplied = computed(() =>
   line-height: 1.2;
 }
 
-.price-container-member {
-  display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
-}
-
-.product-price-original {
-  font-size: 0.65rem;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  text-decoration: line-through;
-  margin: 0;
-}
-
-.product-price-member {
-  font-size: 0.8rem;
-  font-weight: 800;
-  color: #f59e0b;
-  margin: 0;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
-}
-
-.member-price-hint {
-  font-size: 0.6rem;
-  font-weight: 600;
-  color: #f59e0b;
-  margin: 0;
-  margin-top: -0.05rem;
-  opacity: 0.8;
-}
-
-.member-price-badge {
-  font-size: 0.55rem;
-  font-weight: 700;
-  color: #fbbf24;
-  background: rgba(251, 191, 36, 0.15);
-  padding: 0.1rem 0.3rem;
-  border-radius: 4px;
-  border: 1px solid rgba(251, 191, 36, 0.3);
-  text-align: center;
-  letter-spacing: 0.02em;
-  margin-top: 0.2rem;
+.tier-discount-badge {
   display: inline-block;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #15803d;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  margin-top: 0.1rem;
+  line-height: 1.4;
 }
 
 .click-hint {

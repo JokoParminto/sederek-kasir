@@ -120,7 +120,8 @@ const formData = ref({
   name: '',
   phone_number: '',
   avatar_url: DEFAULT_AVATAR,
-  is_member: false,
+  member_type: null as 'umum' | 'akamsi' | 'vip' | null,
+  member_status: 'inactive' as 'active' | 'pending' | 'inactive',
 })
 const formError = ref('')
 const submitError = ref('')
@@ -144,7 +145,8 @@ const openCreateModal = () => {
      name: '',
      phone_number: '',
      avatar_url: DEFAULT_AVATAR,
-     is_member: false,
+     member_type: null,
+     member_status: 'inactive',
    }
    formError.value = ''
    submitError.value = ''
@@ -157,7 +159,8 @@ const openEditModal = (customer: Customer) => {
     name: customer.name,
     phone_number: (customer.phone_number || '').replace(/\D/g, ''),
     avatar_url: customer.avatar_url || DEFAULT_AVATAR,
-    is_member: customer.is_member,
+    member_type: customer.member_type ?? null,
+    member_status: customer.member_status ?? 'inactive',
   }
   formError.value = ''
   submitError.value = ''
@@ -261,11 +264,16 @@ const handleSubmitForm = async () => {
   try {
     isSubmitting.value = true
 
+    const memberType = formData.value.member_type
+    const memberStatus = formData.value.member_status
     const customerData = {
       name: formData.value.name.trim(),
       phone_number: formData.value.phone_number.trim(),
       avatar_url: formData.value.avatar_url || DEFAULT_AVATAR,
-      is_member: formData.value.is_member,
+      is_member: memberType !== null && memberStatus === 'active',
+      total_spending: 0,
+      member_type: memberType,
+      member_status: memberStatus,
     }
 
     if (selectedCustomer.value) {
@@ -440,10 +448,25 @@ const topSpenders = computed(() => customerStore.topCustomers.slice(0, 5))
           :maxlength="2"
         />
 
-        <BaseCheckbox
-          v-model="formData.is_member"
-          label="Member Customer (dapat harga spesial)"
-        />
+        <!-- Member Tier -->
+        <div class="form-group-tier">
+          <label class="tier-label">Tipe Member</label>
+          <select v-model="formData.member_type" class="tier-select">
+            <option :value="null">Bukan Member</option>
+            <option value="umum">Umum</option>
+            <option value="akamsi">Akamsi</option>
+            <option value="vip">VIP</option>
+          </select>
+        </div>
+
+        <div v-if="formData.member_type" class="form-group-tier">
+          <label class="tier-label">Status Member</label>
+          <select v-model="formData.member_status" class="tier-select">
+            <option value="pending">Pending (belum verifikasi)</option>
+            <option value="active">Aktif</option>
+            <option value="inactive">Nonaktif</option>
+          </select>
+        </div>
 
         <div v-if="submitError" class="form-submit-error">
           {{ submitError }}
@@ -817,10 +840,34 @@ const topSpenders = computed(() => customerStore.topCustomers.slice(0, 5))
 
   .form-group {
     grid-column: span 1;
+  }
 
-    /* Full-width for checkbox */
-    &:has(.checkbox-label) {
-      grid-column: span 2;
+  .form-group-tier {
+    grid-column: span 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .tier-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+  }
+
+  .tier-select {
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--color-border, #e2e8f0);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    background: white;
+    color: var(--color-text-primary);
+    cursor: pointer;
+
+    &:focus {
+      outline: none;
+      border-color: var(--brand-primary);
     }
   }
 

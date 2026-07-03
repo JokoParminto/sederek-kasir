@@ -3,6 +3,8 @@ import { ref, computed, watch } from 'vue'
 import type { Product } from '@/types'
 import { formatRupiah } from '@/utils/formatters'
 import { useAddOnStore } from '@/stores/addOn'
+import { useMemberTierStore } from '@/stores/memberTier'
+import { useTransactionStore } from '@/stores/transaction'
 
 interface Props {
   isOpen: boolean
@@ -27,6 +29,8 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const addOnStore = useAddOnStore()
+const memberTierStore = useMemberTierStore()
+const transactionStore = useTransactionStore()
 
 // State
 const quantity = ref(1)
@@ -34,12 +38,21 @@ const selectedAddOns = ref<Map<string, number>>(new Map())
 const searchQuery = ref('')
 
 // Computed
+const tierDiscount = computed(() => {
+  if (!props.product) return null
+  const activeMember = transactionStore.selectedCustomerIsMember &&
+    transactionStore.selectedCustomerMemberStatus === 'active'
+  if (!activeMember || !transactionStore.selectedCustomerTier) return null
+  const result = memberTierStore.computeDiscount(
+    { id: props.product.id, price: props.product.price, categoryName: props.product.categoryName },
+    transactionStore.selectedCustomerTier
+  )
+  return result.discountAmount > 0 ? result : null
+})
+
 const productPrice = computed(() => {
   if (!props.product) return 0
-  if (props.is_customer_member && props.product.memberPrice) {
-    return Number(props.product.memberPrice) || 0
-  }
-  return Number(props.product.price) || 0
+  return tierDiscount.value ? tierDiscount.value.finalPrice : Number(props.product.price) || 0
 })
 
 // Hanya tampilkan addons yang linked ke produk ini (via product_addons)
@@ -164,8 +177,8 @@ watch(() => props.isOpen, async (isOpen) => {
               <div class="product-details">
                 <p class="price-label">Harga Satuan</p>
                 <p class="price">{{ formatRupiah(productPrice) }}</p>
-                <p v-if="is_customer_member && product?.memberPrice" class="member-badge">
-                  <AppIcon name="star" :size="12" /> Harga Member
+                <p v-if="tierDiscount" class="member-badge">
+                  Hemat {{ formatRupiah(tierDiscount.discountAmount) }} · {{ transactionStore.selectedCustomerTier?.toUpperCase() }}
                 </p>
               </div>
             </div>

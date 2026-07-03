@@ -28,7 +28,13 @@ const isLoadingTrx = ref(false)
 // Edit modal
 const isEditOpen = ref(false)
 const isSubmitting = ref(false)
-const formData = ref({ name: '', phone_number: '', avatar_url: '', is_member: false })
+const formData = ref({
+  name: '',
+  phone_number: '',
+  avatar_url: '',
+  member_type: null as 'umum' | 'akamsi' | 'vip' | null,
+  member_status: 'inactive' as 'active' | 'pending' | 'inactive',
+})
 const formError = ref('')
 const submitError = ref('')
 
@@ -73,7 +79,8 @@ const openEditModal = () => {
     name: customer.value.name,
     phone_number: (customer.value.phone_number || '').replace(/\D/g, ''),
     avatar_url: customer.value.avatar_url || DEFAULT_AVATAR,
-    is_member: customer.value.is_member,
+    member_type: customer.value.member_type ?? null,
+    member_status: customer.value.member_status ?? 'inactive',
   }
   formError.value = ''
   submitError.value = ''
@@ -99,11 +106,15 @@ const handleSave = async () => {
 
   try {
     isSubmitting.value = true
+    const memberType = formData.value.member_type
+    const memberStatus = formData.value.member_status
     const updated = await customerApi.updateCustomer(customerId.value, {
       name: formData.value.name.trim(),
       phone_number: formData.value.phone_number.trim(),
       avatar_url: formData.value.avatar_url || DEFAULT_AVATAR,
-      is_member: formData.value.is_member,
+      is_member: memberType !== null && memberStatus === 'active',
+      member_type: memberType,
+      member_status: memberStatus,
     } as any)
     customer.value = updated
     showSuccess('Customer berhasil diupdate')
@@ -170,7 +181,12 @@ onMounted(async () => {
             <div class="customer-name">{{ customer.name }}</div>
             <div class="customer-phone">{{ customer.phone_number }}</div>
             <div class="customer-badges">
-              <BaseBadge v-if="customer.is_member" variant="success">Member</BaseBadge>
+              <BaseBadge v-if="customer.is_member && customer.member_type" variant="success">
+                {{ { umum: 'Member Umum', akamsi: 'Member Akamsi', vip: 'Member VIP' }[customer.member_type!] ?? 'Member' }}
+              </BaseBadge>
+              <BaseBadge v-else-if="customer.member_type" variant="warning">
+                {{ customer.member_type.toUpperCase() }} ({{ customer.member_status }})
+              </BaseBadge>
               <BaseBadge v-else variant="neutral">Regular</BaseBadge>
             </div>
           </div>
@@ -263,10 +279,23 @@ onMounted(async () => {
           placeholder="Contoh: 👤"
           :maxlength="2"
         />
-        <BaseCheckbox
-          v-model="formData.is_member"
-          label="Member Customer (dapat harga spesial)"
-        />
+        <div class="tier-field">
+          <label class="tier-label">Tipe Member</label>
+          <select v-model="formData.member_type" class="tier-select">
+            <option :value="null">Bukan Member</option>
+            <option value="umum">Umum</option>
+            <option value="akamsi">Akamsi</option>
+            <option value="vip">VIP</option>
+          </select>
+        </div>
+        <div v-if="formData.member_type" class="tier-field">
+          <label class="tier-label">Status Member</label>
+          <select v-model="formData.member_status" class="tier-select">
+            <option value="pending">Pending</option>
+            <option value="active">Aktif</option>
+            <option value="inactive">Nonaktif</option>
+          </select>
+        </div>
         <div v-if="submitError" class="form-submit-error">{{ submitError }}</div>
       </form>
 
@@ -589,6 +618,35 @@ onMounted(async () => {
 
   .stats-row .stat-item:last-child {
     grid-column: span 2;
+  }
+}
+
+.tier-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tier-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.tier-select {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  background: white;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  width: 100%;
+
+  &:focus {
+    outline: none;
+    border-color: var(--brand-primary);
   }
 }
 </style>

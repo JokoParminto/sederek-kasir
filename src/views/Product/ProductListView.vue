@@ -115,8 +115,7 @@ const tableColumns = computed<Column[]>(() => [
   { key: 'name',        label: 'Nama',         sortable: false, width: '28%', align: 'left'   },
   { key: 'categoryName',label: 'Kategori',     sortable: false, width: '15%', align: 'left'   },
   ...(isAdmin.value ? [{ key: 'hpp', label: 'HPP', sortable: false, width: '10%', align: 'right' } as Column] : []),
-  { key: 'price',       label: 'Harga',        sortable: false, width: '12%', align: 'right'  },
-  { key: 'memberPrice', label: 'Harga Member', sortable: false, width: '13%', align: 'right'  },
+  { key: 'price',       label: 'Harga',        sortable: false, width: '15%', align: 'right'  },
   { key: 'stock',       label: 'Stok',         sortable: false, width: '10%', align: 'center' },
   { key: 'status',      label: 'Status',       sortable: false, width: '12%', align: 'center' },
 ])
@@ -434,14 +433,6 @@ const isProductInCart = (productId: string): boolean => {
               <span class="price-cell">{{ formatRupiah(row.price) }}</span>
             </template>
 
-            <template #cell-memberPrice="{ row }">
-              <div v-if="row.memberPrice">
-                <div class="regular-price">{{ formatRupiah(row.memberPrice) }}</div>
-                <div class="discount-badge"><AppIcon name="tag" :size="12" /> -{{ formatRupiah(row.price - row.memberPrice) }}</div>
-              </div>
-              <span v-else class="no-member-price">—</span>
-            </template>
-
             <template #cell-stock="{ row }">
               <span :class="['stock-badge', getStockBadgeClass(row.stock)]">
                 <AppIcon :name="row.stock === 0 ? 'x-circle' : 'check-circle'" :size="13" />
@@ -488,10 +479,6 @@ const isProductInCart = (productId: string): boolean => {
                   <div class="price-row">
                     <span class="price-label">Harga:</span>
                     <span class="price-value price-value--main">{{ formatRupiah(product.price) }}</span>
-                  </div>
-                  <div v-if="product.memberPrice" class="price-row">
-                    <span class="price-label">Harga Member:</span>
-                    <span class="price-value price-value--member">{{ formatRupiah(product.memberPrice) }}</span>
                   </div>
                 </div>
 
