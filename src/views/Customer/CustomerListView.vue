@@ -56,14 +56,21 @@ const tableColumns: Column[] = [
     key: 'total_spending',
     label: 'Total Belanja',
     sortable: true,
-    width: '20%',
+    width: '18%',
     align: 'right'
+  },
+  {
+    key: 'member_type',
+    label: 'Tipe Member',
+    sortable: false,
+    width: '16%',
+    align: 'center'
   },
   {
     key: 'status',
     label: 'Status',
     sortable: false,
-    width: '20%',
+    width: '14%',
     align: 'center'
   }
 ]
@@ -348,17 +355,20 @@ const topSpenders = computed(() => customerStore.topCustomers.slice(0, 5))
             <span class="price-cell">{{ formatRupiah(row.total_spending) }}</span>
           </template>
 
-          <!-- Status cell with badge -->
+          <!-- Tipe Member cell -->
+          <template #cell-member_type="{ row }">
+            <span v-if="row.member_type" class="tier-badge" :class="`tier-badge--${row.member_type}`">
+              {{ row.member_type === 'vip' ? 'VIP' : row.member_type.charAt(0).toUpperCase() + row.member_type.slice(1) }}
+              <span v-if="row.member_status !== 'active'" class="tier-badge-pending">(pending)</span>
+            </span>
+            <span v-else class="tier-badge tier-badge--none">—</span>
+          </template>
+
+          <!-- Status cell: active/inactive customer -->
           <template #cell-status="{ row }">
             <StatusBadge
-              v-if="row.is_member"
-              status="active"
-              label="Member"
-            />
-            <BaseBadge
-              v-else
-              label="Regular"
-              variant="neutral"
+              :status="row.member_status === 'active' && row.member_type ? 'active' : 'inactive'"
+              :label="row.member_status === 'active' && row.member_type ? 'Aktif' : 'Nonaktif'"
             />
           </template>
 
@@ -385,16 +395,17 @@ const topSpenders = computed(() => customerStore.topCustomers.slice(0, 5))
                  <span class="card-spending">{{ formatRupiah(customer.total_spending) }}</span>
                </div>
                <div class="card-row">
+                 <span class="card-label">Tipe Member:</span>
+                 <span v-if="customer.member_type" class="tier-badge" :class="`tier-badge--${customer.member_type}`">
+                   {{ customer.member_type === 'vip' ? 'VIP' : customer.member_type.charAt(0).toUpperCase() + customer.member_type.slice(1) }}
+                 </span>
+                 <span v-else class="tier-badge tier-badge--none">Non-Member</span>
+               </div>
+               <div class="card-row">
                  <span class="card-label">Status:</span>
                  <StatusBadge
-                   v-if="customer.is_member"
-                   status="active"
-                   label="Member"
-                 />
-                 <BaseBadge
-                   v-else
-                   label="Regular"
-                   variant="neutral"
+                   :status="customer.member_status === 'active' && customer.member_type ? 'active' : 'inactive'"
+                   :label="customer.member_status === 'active' && customer.member_type ? 'Aktif' : 'Nonaktif'"
                  />
                </div>
              </div>
@@ -464,14 +475,14 @@ const topSpenders = computed(() => customerStore.topCustomers.slice(0, 5))
             </button>
           </div>
 
-          <div v-if="formData.member_type" class="status-row">
+          <div class="status-row">
             <span class="status-row-label">Status:</span>
             <div class="status-pills">
               <button type="button"
                 v-for="s in [{ value: 'active', label: 'Aktif' }, { value: 'pending', label: 'Pending' }, { value: 'inactive', label: 'Nonaktif' }]"
                 :key="s.value"
                 class="status-pill"
-                :class="[`status-pill--${s.value}`, { 'status-pill--active': formData.member_status === s.value }]"
+                :class="[`status-pill--val-${s.value}`, { 'status-pill--selected': formData.member_status === s.value }]"
                 @click="formData.member_status = s.value as any"
               >{{ s.label }}</button>
             </div>
@@ -790,6 +801,123 @@ const topSpenders = computed(() => customerStore.topCustomers.slice(0, 5))
   font-style: italic;
 }
 
+/* Form Layout */
+.form-body {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem 1.25rem;
+  padding: 1.25rem;
+}
+.form-group { grid-column: span 1; }
+
+/* Tier badge in table */
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+}
+.tier-badge--none  { color: #94a3b8; }
+.tier-badge--umum  { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+.tier-badge--akamsi { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.tier-badge--vip   { background: #fdf4ff; color: #7c3aed; border-color: #e9d5ff; }
+.tier-badge-pending { font-weight: 400; font-size: 0.65rem; opacity: 0.7; }
+
+/* Member Tier Selector */
+.member-section {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.member-section-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.tier-pills {
+  display: flex;
+  gap: 0.4rem;
+}
+.tier-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.55rem 0.5rem;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  flex: 1;
+  font-family: inherit;
+}
+.tier-pill:hover { border-color: #94a3b8; background: #f8fafc; }
+.tier-pill-icon {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #94a3b8;
+}
+.tier-pill-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+.tier-pill--active.tier-pill--none { border-color: #94a3b8; background: #f1f5f9; }
+.tier-pill--active.tier-pill--none .tier-pill-icon,
+.tier-pill--active.tier-pill--none .tier-pill-label { color: #475569; }
+.tier-pill--active.tier-pill--umum { border-color: #16a34a; background: #f0fdf4; }
+.tier-pill--active.tier-pill--umum .tier-pill-icon,
+.tier-pill--active.tier-pill--umum .tier-pill-label { color: #15803d; }
+.tier-pill--active.tier-pill--akamsi { border-color: #2563eb; background: #eff6ff; }
+.tier-pill--active.tier-pill--akamsi .tier-pill-icon,
+.tier-pill--active.tier-pill--akamsi .tier-pill-label { color: #1d4ed8; }
+.tier-pill--active.tier-pill--vip { border-color: #7c3aed; background: #fdf4ff; }
+.tier-pill--active.tier-pill--vip .tier-pill-icon,
+.tier-pill--active.tier-pill--vip .tier-pill-label { color: #7c3aed; }
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.7rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.status-row-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.status-pills { display: flex; gap: 0.3rem; }
+.status-pill {
+  padding: 0.25rem 0.65rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  color: #94a3b8;
+  font-family: inherit;
+}
+.status-pill:hover { background: #f1f5f9; }
+.status-pill--selected.status-pill--val-active   { background: #dcfce7; color: #15803d; border-color: #86efac; }
+.status-pill--selected.status-pill--val-pending  { background: #fef9c3; color: #92400e; border-color: #fde68a; }
+.status-pill--selected.status-pill--val-inactive { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+
 /* ============================================
    TABLET LANDSCAPE (768px–1023px) — keep table visible, compact padding
    ============================================ */
@@ -851,101 +979,6 @@ const topSpenders = computed(() => customerStore.topCustomers.slice(0, 5))
   .form-group {
     grid-column: span 1;
   }
-
-  .member-section {
-    grid-column: span 2;
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
-  .member-section-label {
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: var(--color-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .tier-pills {
-    display: flex;
-    gap: 0.4rem;
-  }
-  .tier-pill {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.2rem;
-    padding: 0.55rem 0.5rem;
-    border-radius: 10px;
-    border: 1.5px solid #e2e8f0;
-    background: #fff;
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
-    flex: 1;
-    font-family: inherit;
-  }
-  .tier-pill:hover {
-    border-color: #94a3b8;
-    background: #f8fafc;
-  }
-  .tier-pill-icon {
-    font-size: 0.95rem;
-    font-weight: 700;
-    line-height: 1;
-    color: #94a3b8;
-  }
-  .tier-pill-label {
-    font-size: 0.68rem;
-    font-weight: 600;
-    color: #94a3b8;
-  }
-  .tier-pill--active.tier-pill--none { border-color: #94a3b8; background: #f1f5f9; }
-  .tier-pill--active.tier-pill--none .tier-pill-icon,
-  .tier-pill--active.tier-pill--none .tier-pill-label { color: #475569; }
-  .tier-pill--active.tier-pill--umum { border-color: #16a34a; background: #f0fdf4; }
-  .tier-pill--active.tier-pill--umum .tier-pill-icon,
-  .tier-pill--active.tier-pill--umum .tier-pill-label { color: #15803d; }
-  .tier-pill--active.tier-pill--akamsi { border-color: #2563eb; background: #eff6ff; }
-  .tier-pill--active.tier-pill--akamsi .tier-pill-icon,
-  .tier-pill--active.tier-pill--akamsi .tier-pill-label { color: #1d4ed8; }
-  .tier-pill--active.tier-pill--vip { border-color: #7c3aed; background: #fdf4ff; }
-  .tier-pill--active.tier-pill--vip .tier-pill-icon,
-  .tier-pill--active.tier-pill--vip .tier-pill-label { color: #7c3aed; }
-
-  .status-row {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.45rem 0.7rem;
-    background: #f8fafc;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-  }
-  .status-row-label {
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--color-text-secondary);
-    white-space: nowrap;
-  }
-  .status-pills {
-    display: flex;
-    gap: 0.3rem;
-  }
-  .status-pill {
-    padding: 0.25rem 0.65rem;
-    border-radius: 99px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    border: 1.5px solid #e2e8f0;
-    background: #fff;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-    color: #94a3b8;
-    font-family: inherit;
-  }
-  .status-pill:hover { background: #f1f5f9; }
-  .status-pill--active.status-pill--active   { background: #dcfce7; color: #15803d; border-color: #86efac; }
-  .status-pill--active.status-pill--pending  { background: #fef9c3; color: #92400e; border-color: #fde68a; }
-  .status-pill--active.status-pill--inactive { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
 
   /* Form inputs - Touch-friendly */
   .form-input {

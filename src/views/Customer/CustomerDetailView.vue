@@ -294,14 +294,14 @@ onMounted(async () => {
             </button>
           </div>
 
-          <div v-if="formData.member_type" class="status-row">
+          <div class="status-row">
             <span class="status-row-label">Status:</span>
             <div class="status-pills">
               <button type="button"
                 v-for="s in [{ value: 'active', label: 'Aktif' }, { value: 'pending', label: 'Pending' }, { value: 'inactive', label: 'Nonaktif' }]"
                 :key="s.value"
                 class="status-pill"
-                :class="[`status-pill--${s.value}`, { 'status-pill--active': formData.member_status === s.value }]"
+                :class="[`status-pill--val-${s.value}`, { 'status-pill--selected': formData.member_status === s.value }]"
                 @click="formData.member_status = s.value as any"
               >{{ s.label }}</button>
             </div>
@@ -717,7 +717,7 @@ onMounted(async () => {
   font-family: inherit;
 }
 .status-pill:hover { background: #f1f5f9; }
-.status-pill--active.status-pill--active   { background: #dcfce7; color: #15803d; border-color: #86efac; }
-.status-pill--active.status-pill--pending  { background: #fef9c3; color: #92400e; border-color: #fde68a; }
-.status-pill--active.status-pill--inactive { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+.status-pill--selected.status-pill--val-active   { background: #dcfce7; color: #15803d; border-color: #86efac; }
+.status-pill--selected.status-pill--val-pending  { background: #fef9c3; color: #92400e; border-color: #fde68a; }
+.status-pill--selected.status-pill--val-inactive { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
 </style>
