@@ -1,17 +1,17 @@
-import apiClient from '../apiClient'
+import apiClient from './client'
 import type { MemberTierRule } from '@/types/memberTier'
 
 export const memberTierApi = {
   getRules(): Promise<MemberTierRule[]> {
-    return apiClient.get('/member-tier-rules').then(r => r.data.data)
+    return apiClient.get('/member-tier-rules').then((r: any) => r.data.data)
   },
 
   createRule(data: Partial<MemberTierRule>): Promise<MemberTierRule> {
-    return apiClient.post('/member-tier-rules', data).then(r => r.data.data)
+    return apiClient.post('/member-tier-rules', data).then((r: any) => r.data.data)
   },
 
   updateRule(id: string, data: Partial<MemberTierRule>): Promise<MemberTierRule> {
-    return apiClient.put(`/member-tier-rules/${id}`, data).then(r => r.data.data)
+    return apiClient.put(`/member-tier-rules/${id}`, data).then((r: any) => r.data.data)
   },
 
   deleteRule(id: string): Promise<void> {

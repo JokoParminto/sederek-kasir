@@ -88,12 +88,16 @@ const handleSubmit = async () => {
     isSubmitting.value = true
     submitError.value = null
 
+    const memberType = form.value.member_type
+    const memberStatus = form.value.member_status
     const customerData = {
       name: form.value.name.trim(),
       phone_number: form.value.phone_number.trim(),
       avatar_url: form.value.avatar_url || DEFAULT_AVATAR,
-      member_type: form.value.member_type,
-      member_status: form.value.member_status,
+      is_member: memberType !== null && memberStatus === 'active',
+      total_spending: 0,
+      member_type: memberType,
+      member_status: memberStatus,
     }
 
     if (isEdit.value && props.customer) {

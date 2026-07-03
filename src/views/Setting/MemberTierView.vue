@@ -37,7 +37,7 @@ const statusColor = (r: MemberTierRule) => r.is_active ? '#22c55e' : '#94a3b8'
 const rulesByTier = computed(() => {
   const map: Record<string, MemberTierRule[]> = { umum: [], akamsi: [], vip: [] }
   for (const r of memberTierStore.rules) {
-    if (map[r.tier]) map[r.tier].push(r)
+    if (map[r.tier]) map[r.tier]!.push(r)
   }
   return map
 })
@@ -149,11 +149,11 @@ const toggleProduct = (id: string) => {
       <div v-for="tier in ['umum', 'akamsi', 'vip']" :key="tier" class="tier-section">
         <h2 class="tier-heading">Member {{ tierLabel(tier) }}</h2>
 
-        <div v-if="!rulesByTier[tier].length" class="empty-rules">
+        <div v-if="!(rulesByTier[tier] ?? []).length" class="empty-rules">
           Belum ada rule untuk tier ini.
         </div>
 
-        <div v-for="rule in rulesByTier[tier]" :key="rule.id" class="rule-card">
+        <div v-for="rule in (rulesByTier[tier] ?? [])" :key="rule.id" class="rule-card">
           <div class="rule-header">
             <span class="rule-status-dot" :style="{ background: statusColor(rule) }" />
             <span class="rule-label">{{ rule.label }}</span>
