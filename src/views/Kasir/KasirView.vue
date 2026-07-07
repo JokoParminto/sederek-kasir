@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, nextTick } from 'vue'
+import { onMounted, onUnmounted, ref, computed, nextTick, watch } from 'vue'
 import { useTransactionStore } from '@/stores/transaction'
 import { useProductStore } from '@/stores/product'
 import { useShiftStore } from '@/stores/shift'
@@ -148,8 +148,10 @@ onMounted(async () => {
   }
 
   // Shift + member tier rules fire-and-forget (non-blocking)
+  // reloadRules (bukan loadRules) agar perubahan rule dari admin langsung masuk
   shiftStore.fetchCurrentShift().catch(() => {})
-  memberTierStore.loadRules().catch(() => {})
+  memberTierStore.reloadRules().catch(() => {})
+    .then(() => syncDailyLimitToStore())
 
   // ── Fase 2: Refresh dari API di background ──
   const refreshData = async () => {
@@ -188,6 +190,22 @@ onMounted(async () => {
   }
 })
 
+// Background refresh member tier rules tiap 5 menit
+// Agar perubahan rule dari admin langsung masuk tanpa perlu reload halaman
+let rulesRefreshInterval: ReturnType<typeof setInterval> | null = null
+rulesRefreshInterval = setInterval(() => {
+  memberTierStore.reloadRules().catch(() => {}).then(() => {
+    syncDailyLimitToStore()
+    if (transactionStore.selectedCustomerId) {
+      reapplyTierDiscounts()
+    }
+  })
+}, 5 * 60 * 1000)
+
+onUnmounted(() => {
+  if (rulesRefreshInterval) clearInterval(rulesRefreshInterval)
+})
+
 const handleSelectProduct = async (product: Product) => {
   if (!shiftStore.isShiftActive) {
     showError('Buka shift terlebih dahulu untuk menambah produk')
@@ -218,7 +236,17 @@ const handleAddToCart = (productId: string, quantity: number, selectedAddOns: an
     { id: product.id, price: product.price, categoryName: product.categoryName },
     transactionStore.selectedCustomerTier
   )
-  const tierMemberPrice = tierResult.discountAmount > 0 ? tierResult.finalPrice : undefined
+
+  // Daily quota check — jika qty melebihi sisa kuota, tidak apply diskon sama sekali
+  let tierMemberPrice: number | undefined = undefined
+  if (tierResult.discountAmount > 0) {
+    const remaining = transactionStore.memberRemainingQuota
+    if (remaining === null || quantity <= remaining) {
+      tierMemberPrice = tierResult.finalPrice
+    } else {
+      showError(`Kuota diskon member hari ini tidak cukup (sisa ${remaining} cup)`)
+    }
+  }
 
   const itemId = transactionStore.addItem(
     product.id,
@@ -249,6 +277,11 @@ const handleUpdateItemQuantity = (itemId: string, quantity: number) => {
   if (!item) return
 
   transactionStore.updateItemQuantity(itemId, quantity)
+
+  // Kalau item dapat diskon member dan qty naik, re-validate quota
+  if (item.is_member_price) {
+    reapplyTierDiscounts()
+  }
 }
 
 // Handle item removal - FE ONLY (no API calls)
@@ -421,32 +454,47 @@ const printCustomerReceipt = async (trx: Transaction) => {
       const rawName = cfg.item.item_name_format === 'short'
         ? item.productName.slice(0, 16)
         : item.productName
+      // Kalau member price: tampilkan harga asli di baris nama, subtotal = harga member × qty
+      const displaySubtotal = item.is_member_price
+        ? (item.memberPrice ?? item.price) * item.quantity
+        : item.subtotal
       chunks.push(L(threeCol(
         cfg.item.show_item_name ? clean(rawName) : '',
         cfg.item.show_item_quantity ? String(item.quantity) : '',
-        cfg.item.show_item_price ? fmt(item.subtotal) : '',
+        cfg.item.show_item_price ? fmt(displaySubtotal) : '',
       )))
+      // Baris member discount per item — dikontrol dari layout config
+      if (cfg.item.show_item_price && cfg.item.show_member_discount && item.is_member_price) {
+        const saving = item.memberSaving ?? Math.max(0, (item.originalPrice - (item.memberPrice ?? item.price)) * item.quantity)
+        if (saving > 0) {
+          chunks.push(L(twoCol('  * Hrg normal', fmt(item.originalPrice * item.quantity))))
+          chunks.push(L(twoCol('  * Hemat member', `-${fmt(saving)}`)))
+        }
+      }
       if (cfg.item.show_item_addons && item.addOns?.length) {
         for (const a of item.addOns) {
           const ap = a.price > 0 ? fmt(a.price * a.quantity) : ''
           chunks.push(L(ap ? twoCol(`  + ${clean(a.addOnName)}`, ap) : `  + ${clean(a.addOnName)}`))
         }
       }
-      if (cfg.item.show_item_notes && (item as any).notes) {
-        chunks.push(L(`  > ${clean((item as any).notes)}`))
+      if (cfg.item.show_item_notes && item.notes) {
+        chunks.push(L(`  > ${clean(item.notes)}`))
       }
     }
     chunks.push(L(div))
 
     // ── Summary ──
     if (cfg.summary.show_subtotal) chunks.push(L(twoCol('Subtotal', fmt(trx.subtotal))))
+    if (cfg.summary.show_member_savings) {
+      const memberDisc = trx.totalMemberSavings || trx.items.reduce((s, i) =>
+        s + (i.memberSaving ?? (i.is_member_price ? Math.max(0, (i.originalPrice - (i.memberPrice ?? i.price)) * i.quantity) : 0)), 0)
+      if (memberDisc > 0) chunks.push(L(twoCol('Disc. Member', `-${fmt(memberDisc)}`)))
+    }
     if (cfg.summary.show_discount) {
       const itemDisc = trx.itemDiscounts || 0
       const globalDisc = trx.globalDiscountAmount || 0
-      const totalDisc = itemDisc + globalDisc
-      if (totalDisc > 0) {
-        chunks.push(L(twoCol('Diskon', `-${fmt(totalDisc)}`)))
-      }
+      if (itemDisc > 0) chunks.push(L(twoCol('Disc. Item', `-${fmt(itemDisc)}`)))
+      if (globalDisc > 0) chunks.push(L(twoCol('Disc. Global', `-${fmt(globalDisc)}`)))
     }
     if (cfg.summary.show_payment_method) {
       chunks.push(L(twoCol('Bayar', clean(trx.paymentMethod || '-'))))
@@ -609,17 +657,12 @@ const refreshCartFromServer = async () => {
       )
     }
     for (const item of (heldOrder.items ?? [])) {
-      const tierResult = memberTierStore.computeDiscount(
-        { id: item.productId, price: item.originalPrice ?? item.price, categoryName: item.categoryName },
-        transactionStore.selectedCustomerTier
-      )
-      const tierMemberPrice = tierResult.discountAmount > 0 ? tierResult.finalPrice : undefined
       const itemId = transactionStore.addItem(
         item.productId,
         item.productName,
         item.originalPrice ?? item.price,
         item.quantity,
-        tierMemberPrice,
+        undefined,
         item.categoryName
       )
       const storeItem = transactionStore.items.find(i => i.id === itemId)
@@ -631,6 +674,18 @@ const refreshCartFromServer = async () => {
       }
     }
     if (heldOrder.globalDiscount) transactionStore.globalDiscount = heldOrder.globalDiscount
+    // Reapply tier discount setelah daily usage selesai di-fetch
+    const stopWatchRefresh = watch(
+      () => transactionStore.memberDailyUsageLoading,
+      (loading) => {
+        if (!loading) {
+          stopWatchRefresh()
+          syncDailyLimitToStore()
+          reapplyTierDiscounts()
+        }
+      },
+      { immediate: true }
+    )
   } catch {
     // Offline atau held order sudah tidak ada — biarkan cart apa adanya
   }
@@ -811,17 +866,12 @@ const handleLoadHeldOrder = async (orderId: string) => {
 
     for (const item of heldOrder.items) {
       const basePrice = item.originalPrice || item.price
-      const tierResult = memberTierStore.computeDiscount(
-        { id: item.productId, price: basePrice, categoryName: item.categoryName },
-        transactionStore.selectedCustomerTier
-      )
-      const tierMemberPrice = tierResult.discountAmount > 0 ? tierResult.finalPrice : undefined
       transactionStore.addItem(
         item.productId,
         item.productName,
         basePrice,
         item.quantity,
-        tierMemberPrice,
+        undefined,
         item.categoryName
       )
 
@@ -863,6 +913,19 @@ const handleLoadHeldOrder = async (orderId: string) => {
     if (heldOrder.globalDiscount && heldOrder.globalDiscount.value > 0) {
       transactionStore.applyGlobalDiscount(heldOrder.globalDiscount)
     }
+
+    // Step 6.5: Reapply tier discounts setelah daily usage fetch selesai
+    const stopWatchLoad = watch(
+      () => transactionStore.memberDailyUsageLoading,
+      (loading) => {
+        if (!loading) {
+          stopWatchLoad()
+          syncDailyLimitToStore()
+          reapplyTierDiscounts()
+        }
+      },
+      { immediate: true }
+    )
 
     // Step 7: Store held order ID + version for later update/deletion after payment
 
@@ -1101,17 +1164,42 @@ const handleRecordSplitBillPayment = async (
 }
 
 // Re-compute tier discounts for all items already in cart (after customer change)
-const reapplyTierDiscounts = () => {
+// Sync daily_limit dari rules tier yang aktif ke transaction store
+const syncDailyLimitToStore = () => {
   const tier = transactionStore.selectedCustomerTier
+  if (!tier) { transactionStore.memberDailyLimit = null; return }
+  const tierRules = memberTierStore.rules.filter(r => r.tier === tier && r.is_active)
+  const limit = tierRules.find(r => r.daily_limit !== null)?.daily_limit ?? null
+  transactionStore.memberDailyLimit = limit
+}
+
+const reapplyTierDiscounts = () => {
+  syncDailyLimitToStore()
+  const tier = transactionStore.selectedCustomerTier
+  // Reapply dengan quota check — hitung ulang dari nol
+  let usedInCart = 0
   transactionStore.items.forEach(item => {
     const result = memberTierStore.computeDiscount(
       { id: item.productId, price: item.originalPrice, categoryName: item.categoryName },
       tier
     )
-    item.memberPrice = result.discountAmount > 0 ? result.finalPrice : undefined
-    item.is_member_price = result.discountAmount > 0
-    item.memberSaving = result.discountAmount * item.quantity
-    item.price = result.discountAmount > 0 ? result.finalPrice : item.originalPrice
+    const limit = transactionStore.memberDailyLimit
+    const dailyUsed = transactionStore.memberDailyUsedToday
+    const canApply = result.discountAmount > 0 &&
+      (limit === null || (dailyUsed + usedInCart + item.quantity) <= limit)
+
+    if (canApply) {
+      item.memberPrice = result.finalPrice
+      item.is_member_price = true
+      item.memberSaving = result.discountAmount * item.quantity
+      item.price = result.finalPrice
+      usedInCart += item.quantity
+    } else {
+      item.memberPrice = undefined
+      item.is_member_price = false
+      item.memberSaving = 0
+      item.price = item.originalPrice
+    }
     item.subtotal = item.price * item.quantity
   })
 }
@@ -1124,9 +1212,23 @@ const handleSelectCustomer = (customerId: string | null) => {
   const memberStatus = selectedCustomer?.member_status ?? 'inactive'
 
   transactionStore.setSelectedCustomer(customerId, is_member, memberType, memberStatus)
+  syncDailyLimitToStore()
 
-  // Re-apply tier discounts to existing cart items when customer changes
+  // Re-apply tier discounts ke cart items yang sudah ada saat customer dipilih
   if (customerId && is_member && memberStatus === 'active' && memberType) {
+    // Tunggu fetch daily usage selesai — jangan pakai setTimeout agar tidak race condition
+    const stopWatch = watch(
+      () => transactionStore.memberDailyUsageLoading,
+      (loading) => {
+        if (!loading) {
+          stopWatch()
+          syncDailyLimitToStore()
+          reapplyTierDiscounts()
+        }
+      },
+      { immediate: true }
+    )
+  } else {
     reapplyTierDiscounts()
   }
 }

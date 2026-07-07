@@ -6,10 +6,18 @@
 html {
   background-color: var(--brand-bg-dark);
   /* Proportional scaling: all rem-based sizes scale with viewport width.
-     At 1143px+ = 16px (ceiling). At 1006px = 14.1px (88%). At 714px = 10px (min). */
+     At 1366px+ → 16px. At 1280px → 15.7px (capped 15px desktop). At <768px → floor 10px. */
   font-size: clamp(10px, 1.4vw, 16px);
   /* Disable grey flash on tap for entire app */
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Tablet range: intentionally smaller base to prevent "zoomed in" look on POS tablets.
+   1.1vw → 960px=10.6px, 1006px=11.1px, 1280px=14.1px (capped 13px). */
+@media (min-width: 768px) and (max-width: 1279px) {
+  html {
+    font-size: clamp(10px, 1.1vw, 13px);
+  }
 }
 body {
   background-color: var(--brand-bg-dark);

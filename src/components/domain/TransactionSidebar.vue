@@ -122,6 +122,14 @@ const getItemName = (item: any) => item.productName || item.product_name || 'Ite
 const isMemberOrder = (order: Transaction) =>
   Boolean((order as any).customerIsMember ?? (order as any).customer_is_member)
 
+const getOrderMemberSavings = (order: Transaction): number =>
+  order.items.reduce((sum, item) => {
+    const i = item as any
+    if (!i.is_member_price) return sum
+    const saving = i.memberSaving || Math.max(0, (i.originalPrice - i.price) * item.quantity)
+    return sum + saving
+  }, 0)
+
 // --- Barista + Kitchen printer + layout (loaded once on mount) ---
 const baristaPrinter = ref<UiPrinter | null>(null)
 const baristaLayout = ref<BaristaLayoutConfig | null>(null)
@@ -487,7 +495,13 @@ const handlePromoSelect = (promo: Promo | null) => {
 
                   <!-- Total + Actions -->
                   <div class="ho-right">
-                    <span class="ho-total">{{ formatRupiah(order.total) }}</span>
+                    <div class="ho-total-group">
+                      <span
+                        v-if="getOrderMemberSavings(order) > 0"
+                        class="ho-total-original"
+                      >{{ formatRupiah(order.total + getOrderMemberSavings(order)) }}</span>
+                      <span class="ho-total" :class="{ 'ho-total--member': getOrderMemberSavings(order) > 0 }">{{ formatRupiah(order.total) }}</span>
+                    </div>
                     <div class="ho-actions">
                       <button
                         class="ho-btn-print"
@@ -1349,6 +1363,22 @@ const handlePromoSelect = (promo: Promo | null) => {
   flex-shrink: 0;
 }
 
+.ho-total-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.05rem;
+}
+
+.ho-total-original {
+  font-size: 0.67rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: line-through;
+  opacity: 0.65;
+  white-space: nowrap;
+}
+
 .ho-total {
   font-size: 0.88rem;
   font-weight: 800;
@@ -1357,6 +1387,13 @@ const handlePromoSelect = (promo: Promo | null) => {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   white-space: nowrap;
+}
+
+.ho-total--member {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .ho-actions {

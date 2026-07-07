@@ -557,14 +557,22 @@ const handleTest = async () => {
           }
         }
         if (cfg.item.show_item_notes && items.notes) chunks.push(L(`  > ${clean(items.notes)}`))
+        // Member discount per item (preview sample)
+        if (cfg.item.show_item_price && cfg.item.show_member_discount) {
+          chunks.push(L(twoCol('  * Hrg normal', fmt(payment.subtotal || 17000))))
+          chunks.push(L(twoCol('  * Hemat member', `-${fmt(2000)}`)))
+        }
       }
       chunks.push(L(div))
       if (cfg.summary.show_subtotal) chunks.push(L(twoCol('Subtotal', fmt(payment.subtotal))))
+      if (cfg.summary.show_member_savings) {
+        chunks.push(L(twoCol('Disc. Member', `-${fmt(2000)}`)))
+      }
       if (cfg.summary.show_discount) {
         const itemDisc = parseFloat(payment.discount_items || 0)
         const globalDisc = parseFloat(payment.global_discount || 0)
-        const totalDisc = itemDisc + globalDisc
-        if (totalDisc > 0) chunks.push(L(twoCol('Diskon', `-${fmt(totalDisc)}`)))
+        if (itemDisc > 0) chunks.push(L(twoCol('Disc. Item', `-${fmt(itemDisc)}`)))
+        if (globalDisc > 0) chunks.push(L(twoCol('Disc. Global', `-${fmt(globalDisc)}`)))
       }
       if (cfg.summary.show_payment_method && payment.payment_method) {
         chunks.push(L(twoCol('Bayar', clean(payment.payment_method))))

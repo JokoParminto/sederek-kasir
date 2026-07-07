@@ -45,7 +45,8 @@ export interface Transaction {
   customerIsMember?: boolean  // For restoring member pricing on held order load
   items: TransactionItem[]
   subtotal: number
-  itemDiscounts: number  // Sum of all item discounts
+  itemDiscounts: number  // Sum of all per-item manual discounts
+  totalMemberSavings?: number  // Sum of all member price savings
   globalDiscount: Discount
   globalDiscountAmount: number
   total: number

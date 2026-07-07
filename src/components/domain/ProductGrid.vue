@@ -169,11 +169,11 @@ const visibleProducts = computed(() => props.products.slice(0, 80))
   }
 }
 
-/* Tablet Portrait (768px-1023px): 3 columns */
+/* Tablet (768px-1023px): 4 columns — smaller cards to reduce "zoomed in" look */
 @media (min-width: 768px) and (max-width: 1023px) {
   .grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--spacing-2);
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-1);
     padding: var(--spacing-2);
   }
 }

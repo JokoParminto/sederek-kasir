@@ -19,6 +19,7 @@ export interface MemberTierRule {
   fixed_price: number | null
   sort_order: number
   is_active: boolean
+  daily_limit: number | null
   products: MemberTierRuleProduct[]
 }
 

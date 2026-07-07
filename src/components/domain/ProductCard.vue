@@ -40,11 +40,19 @@ const stockLabel = computed(() =>
 const memberTierStore = useMemberTierStore()
 const transactionStore = useTransactionStore()
 
-// Tier-based discount untuk product ini
+// Tier-based discount untuk product ini (dengan quota check)
 const tierDiscount = computed(() => {
   const activeMember = transactionStore.selectedCustomerIsMember &&
     transactionStore.selectedCustomerMemberStatus === 'active'
   if (!activeMember || !transactionStore.selectedCustomerTier) return null
+
+  // Tunggu fetch daily usage selesai — tampilkan harga normal dulu saat loading
+  if (transactionStore.memberDailyUsageLoading) return null
+
+  // Cek sisa kuota: kalau 0 atau habis, tidak tampilkan diskon
+  const remaining = transactionStore.memberRemainingQuota
+  if (remaining !== null && remaining <= 0) return null
+
   const result = memberTierStore.computeDiscount(
     { id: props.product.id, price: props.product.price, categoryName: props.product.categoryName },
     transactionStore.selectedCustomerTier
@@ -81,12 +89,11 @@ const tierDiscount = computed(() => {
     <!-- Product Info -->
     <div class="product-info">
       <h3 class="product-name">{{ product.name }}</h3>
-      <!-- Harga selalu tampil normal, tanpa coret -->
-      <p class="product-price">{{ formatRupiah(product.price) }}</p>
-      <!-- Badge tier discount jika customer aktif member -->
-      <span v-if="tierDiscount" class="tier-discount-badge">
-        Hemat {{ formatRupiah(tierDiscount.discountAmount) }}
-      </span>
+      <div v-if="tierDiscount" class="price-member-group">
+        <span class="product-price product-price--crossed">{{ formatRupiah(product.price) }}</span>
+        <span class="product-price product-price--member">{{ formatRupiah(tierDiscount.finalPrice) }}</span>
+      </div>
+      <p v-else class="product-price">{{ formatRupiah(product.price) }}</p>
     </div>
 
     <!-- Hover Indicator -->
@@ -256,6 +263,13 @@ const tierDiscount = computed(() => {
   word-break: break-word;
 }
 
+.price-member-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+}
+
 .product-price {
   font-family: var(--font-family-body);
   font-size: 0.78rem;
@@ -266,17 +280,17 @@ const tierDiscount = computed(() => {
   line-height: 1.2;
 }
 
-.tier-discount-badge {
-  display: inline-block;
-  font-size: 0.58rem;
-  font-weight: 700;
-  color: #15803d;
-  background: #dcfce7;
-  border: 1px solid #bbf7d0;
-  padding: 0.1rem 0.35rem;
-  border-radius: 4px;
-  margin-top: 0.1rem;
-  line-height: 1.4;
+.product-price--crossed {
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.product-price--member {
+  color: #16a34a;
+  font-size: 0.82rem;
 }
 
 .click-hint {
@@ -316,14 +330,14 @@ const tierDiscount = computed(() => {
   .product-price { font-size: 0.76rem; }
 }
 
-/* Tablet (768px-1023px) — compact card for landscape POS tablet */
+/* Tablet (768px-1023px) — 4-col grid, compact card */
 @media (min-width: 768px) and (max-width: 1023px) {
-  .product-image { height: 65px; }
-  .image-placeholder { font-size: 1.8rem; }
-  .product-info { padding: 0.3rem var(--spacing-2); gap: 0.1rem; }
-  .product-name { font-size: 0.8rem; }
-  .product-price { font-size: 0.8rem; }
-  .stock-badge { padding: 0.1rem 0.3rem; font-size: 0.7rem; }
+  .product-image { height: 55px; }
+  .image-placeholder { font-size: 1.5rem; }
+  .product-info { padding: 0.25rem var(--spacing-1); gap: 0.08rem; }
+  .product-name { font-size: 0.75rem; -webkit-line-clamp: 1; }
+  .product-price { font-size: 0.75rem; }
+  .stock-badge { padding: 0.1rem 0.25rem; font-size: 0.65rem; }
 }
 
 /* Mobile Landscape (480px-767px) */

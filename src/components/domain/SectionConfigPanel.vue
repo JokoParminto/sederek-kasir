@@ -34,12 +34,14 @@ const defaultConfig: CustomerLayoutConfig = {
     show_item_price: true,
     show_item_addons: false,
     show_item_notes: false,
+    show_member_discount: true,
     item_name_format: 'short'
   },
   summary: {
     show_subtotal: true,
     show_discount: true,
     show_discount_reason: false,
+    show_member_savings: true,
     show_tax: true,
     show_tax_breakdown: false,
     show_rounding: true,
@@ -145,6 +147,11 @@ watch(
          label="Catatan Item"
          description="Menampilkan catatan khusus per item"
        />
+       <CheckboxField
+         v-model="config.item.show_member_discount"
+         label="Potongan Harga Member (per item)"
+         description="Tampilkan harga normal & hemat member di tiap item"
+       />
        <RadioField
         v-model="config.item.item_name_format"
         label="Format Nama Produk: Singkat (max 20 karakter)"
@@ -168,8 +175,13 @@ watch(
       />
       <CheckboxField
         v-model="config.summary.show_discount"
-        label="Diskon"
-        description="Menampilkan potongan harga"
+        label="Diskon (item & global)"
+        description="Menampilkan potongan harga item dan global"
+      />
+      <CheckboxField
+        v-model="config.summary.show_member_savings"
+        label="Total Hemat Member"
+        description="Tampilkan baris 'Disc. Member' di ringkasan pembayaran"
       />
       <CheckboxField
         v-model="config.summary.show_discount_reason"

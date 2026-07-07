@@ -106,6 +106,8 @@ export const heldOrderApi = {
            price: parseFloat(item.product_price) || 0,
            originalPrice: parseFloat(item.original_price) || parseFloat(item.product_price) || 0,
            memberPrice: item.member_price ? (parseFloat(item.member_price) || undefined) : undefined,
+           is_member_price: item.is_member_price || false,
+           memberSaving: parseFloat(item.member_saving) || 0,
            quantity: parseInt(item.quantity) || 1,
            notes: item.notes || '',
            discount: {
@@ -113,7 +115,6 @@ export const heldOrderApi = {
              value: parseFloat(item.discount_amount) || 0,
            },
            subtotal: parseFloat(item.total) || parseFloat(item.subtotal) || 0,
-           is_member_price: item.is_member_price || false,
            categoryName: item.category_name || undefined,
            addOns: (item.addOns || []).map((a: any) => ({
              id: a.id,

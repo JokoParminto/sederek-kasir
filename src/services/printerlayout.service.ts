@@ -26,12 +26,14 @@ export interface CustomerLayoutConfig {
     show_item_price: boolean
     show_item_addons: boolean
     show_item_notes: boolean
+    show_member_discount: boolean
     item_name_format: 'short' | 'long'
   }
   summary: {
     show_subtotal: boolean
     show_discount: boolean
     show_discount_reason: boolean
+    show_member_savings: boolean
     show_tax: boolean
     show_tax_breakdown: boolean
     show_rounding: boolean
@@ -119,12 +121,14 @@ function backendToCustomerLayout(backend: BackendTemplate): CustomerLayoutConfig
       show_item_price: (items.show_item_subtotal !== false) || (items.show_price !== false),
       show_item_addons: items.show_add_ons !== false,
       show_item_notes: items.show_notes !== false,
+      show_member_discount: items.show_member_discount !== false,
       item_name_format: (items.item_name_format as 'short' | 'long') || 'short',
     },
     summary: {
       show_subtotal: payment.show_subtotal !== false,
       show_discount: payment.show_global_discount !== false,
       show_discount_reason: payment.show_discount_reason === true,
+      show_member_savings: payment.show_member_savings !== false,
       show_tax: payment.show_tax === true,
       show_tax_breakdown: payment.show_tax_breakdown === true,
       show_rounding: payment.show_rounding === true,
@@ -228,12 +232,14 @@ function customerLayoutToBackend(config: CustomerLayoutConfig): BackendTemplate 
         show_item_subtotal: config.item.show_item_price,
         show_price: config.item.show_item_price,
         show_notes: config.item.show_item_notes,
+        show_member_discount: config.item.show_member_discount,
         item_name_format: config.item.item_name_format,
       },
       payment: {
         show_subtotal: config.summary.show_subtotal,
         show_global_discount: config.summary.show_discount,
         show_discount_reason: config.summary.show_discount_reason,
+        show_member_savings: config.summary.show_member_savings,
         show_tax: config.summary.show_tax,
         show_tax_breakdown: config.summary.show_tax_breakdown,
         show_rounding: config.summary.show_rounding,
@@ -313,12 +319,14 @@ function getDefaultCustomerLayout(): CustomerLayoutConfig {
       show_item_price: true,
       show_item_addons: false,
       show_item_notes: false,
+      show_member_discount: true,
       item_name_format: 'short'
     },
     summary: {
       show_subtotal: true,
       show_discount: true,
       show_discount_reason: false,
+      show_member_savings: true,
       show_tax: true,
       show_tax_breakdown: false,
       show_rounding: true,

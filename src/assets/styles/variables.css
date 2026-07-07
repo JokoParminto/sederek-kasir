@@ -181,14 +181,14 @@ html.dark-mode {
   --shadow-24: 0 24px 48px 0 rgba(0, 0, 0, 1);
 }
 
-/* Desktop/Tablet Typography Adjustments (960px+ covers Samsung Tab A9 landscape at 1006px) */
-@media (min-width: 960px) {
+/* Desktop Typography Adjustments (1280px+ only — tablets use smaller html base via main.css) */
+@media (min-width: 1280px) {
   :root {
-    --font-size-base: 0.95rem;     /* 15.2px */
-    --font-size-lg: 1.05rem;       /* 16.8px */
-    --font-size-xl: 1.15rem;       /* 18.4px */
-    --font-size-2xl: 1.35rem;      /* 21.6px */
-    --font-size-3xl: 1.65rem;      /* 26.4px */
+    --font-size-base: 0.95rem;
+    --font-size-lg: 1.05rem;
+    --font-size-xl: 1.15rem;
+    --font-size-2xl: 1.35rem;
+    --font-size-3xl: 1.65rem;
   }
 }
 

@@ -29,6 +29,7 @@ const normalizeTransaction = (data: any): Transaction => {
       originalPrice: parseFloat(item.original_price || item.originalPrice) || parseFloat(item.product_price || item.price) || 0,
       memberPrice: item.member_price ? parseFloat(item.member_price) : undefined,
       is_member_price: Boolean(item.is_member_price ?? item.isMemberPrice ?? false),
+      memberSaving: item.member_savings ? parseFloat(item.member_savings) : undefined,
       paymentStatus: item.payment_status || item.paymentStatus,
       quantity: parseInt(item.quantity) || 1,
       discount: {
@@ -62,6 +63,7 @@ const normalizeTransaction = (data: any): Transaction => {
     createdAt: parseWIB(data.created_at || data.createdAt) ?? new Date(),
     paidAt: parseWIB(data.completed_at),
     notes: data.notes,
+    totalMemberSavings: parseFloat(data.total_member_savings) || 0,
     amount_paid: data.amount_paid !== undefined ? parseFloat(data.amount_paid) : undefined,
     remaining_amount: data.remaining_amount !== undefined ? parseFloat(data.remaining_amount) : undefined,
     version_number: data.version_number !== undefined ? Number(data.version_number) : undefined,

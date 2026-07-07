@@ -43,6 +43,12 @@ const tierDiscount = computed(() => {
   const activeMember = transactionStore.selectedCustomerIsMember &&
     transactionStore.selectedCustomerMemberStatus === 'active'
   if (!activeMember || !transactionStore.selectedCustomerTier) return null
+
+  if (transactionStore.memberDailyUsageLoading) return null
+
+  const remaining = transactionStore.memberRemainingQuota
+  if (remaining !== null && remaining <= 0) return null
+
   const result = memberTierStore.computeDiscount(
     { id: props.product.id, price: props.product.price, categoryName: props.product.categoryName },
     transactionStore.selectedCustomerTier

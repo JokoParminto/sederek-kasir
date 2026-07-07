@@ -144,21 +144,15 @@ const handleDeleteAddOn = (addOnId: string) => {
   <div class="cart-item">
     <!-- Row 1: nama produk + harga satuan + delete -->
     <div class="item-header">
-      <h4 class="product-name">
-        <AppIcon v-if="item.is_member_price" name="star" :size="11" class="member-star" />
-        {{ item.productName }}
-      </h4>
-      <span class="price-unit">@ {{ formatRupiah(item.price) }}</span>
+      <h4 class="product-name">{{ item.productName }}</h4>
+      <div class="price-unit-group">
+        <span v-if="item.is_member_price" class="price-original-crossed">{{ formatRupiah(item.originalPrice) }}</span>
+        <span class="price-unit" :class="{ 'price-unit--member': item.is_member_price }">@ {{ formatRupiah(item.price) }}</span>
+      </div>
       <span v-if="isPaid" class="paid-badge">PAID</span>
       <button class="btn-delete" @click.stop="$emit('remove', item.id)" title="Hapus" :disabled="isPaid">
         <AppIcon name="trash" :size="13" />
       </button>
-    </div>
-
-    <!-- Member savings info (conditional) -->
-    <div v-if="item.is_member_price" class="member-row">
-      <span class="price-regular">Reg: <span class="price-crossed">{{ formatRupiah(item.originalPrice) }}</span></span>
-      <span class="savings-badge">Hemat {{ formatRupiah(memberSavings) }}</span>
     </div>
 
     <!-- Row 2: qty controls + total + action icon buttons -->
@@ -179,8 +173,8 @@ const handleDeleteAddOn = (addOnId: string) => {
       </div>
     </div>
 
-    <!-- Extras: add-ons + discount + subtotal (hanya kalau ada) -->
-    <div v-if="hasAddOns || item.discount.value > 0" class="extras-section">
+    <!-- Extras: add-ons + member discount info + per-item discount + subtotal -->
+    <div v-if="hasAddOns || item.discount.value > 0 || item.is_member_price" class="extras-section">
       <div v-for="addon in item.addOns" :key="addon.addOnId" class="extra-item addon">
         <AppIcon name="promo" :size="11" class="extra-icon" />
         <span class="extra-name">{{ addon.addOnName }}</span>
@@ -188,6 +182,11 @@ const handleDeleteAddOn = (addOnId: string) => {
         <button class="btn-remove-extra" @click.stop="handleDeleteAddOn(addon.addOnId)" :disabled="isPaid">
           <AppIcon name="x" :size="11" />
         </button>
+      </div>
+      <div v-if="item.is_member_price && memberSavings > 0" class="extra-item member-discount">
+        <AppIcon name="star" :size="11" class="extra-icon" />
+        <span class="extra-name">Diskon Member</span>
+        <span class="extra-value">hemat {{ formatRupiah(memberSavings) }}</span>
       </div>
       <div v-if="item.discount.value > 0" class="extra-item discount">
         <AppIcon name="tag" :size="11" class="extra-icon" />
@@ -197,7 +196,7 @@ const handleDeleteAddOn = (addOnId: string) => {
           <AppIcon name="x" :size="11" />
         </button>
       </div>
-      <div class="subtotal-row">
+      <div v-if="hasAddOns || item.discount.value > 0" class="subtotal-row">
         <span class="subtotal-label">Sub</span>
         <span class="subtotal-value">{{ formatRupiah(itemSubtotal) }}</span>
       </div>
@@ -307,9 +306,20 @@ const handleDeleteAddOn = (addOnId: string) => {
   white-space: nowrap;
 }
 
-.member-star {
+.price-unit-group {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
   flex-shrink: 0;
-  color: #f59e0b;
+}
+
+.price-original-crossed {
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: line-through;
+  opacity: 0.6;
+  white-space: nowrap;
 }
 
 .price-unit {
@@ -318,6 +328,10 @@ const handleDeleteAddOn = (addOnId: string) => {
   font-weight: 700;
   color: var(--brand-primary);
   white-space: nowrap;
+}
+
+.price-unit--member {
+  color: #16a34a;
 }
 
 .paid-badge {
@@ -351,36 +365,6 @@ const handleDeleteAddOn = (addOnId: string) => {
   &:hover:not(:disabled) { opacity: 1; background: rgba(239,68,68,0.08); color: #dc2626; }
   &:active:not(:disabled) { transform: scale(0.9); }
   &:disabled { opacity: 0.2; cursor: not-allowed; }
-}
-
-/* ── Member savings row (conditional) ── */
-.member-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.12rem;
-}
-
-.price-regular {
-  font-size: 0.62rem;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
-.price-crossed {
-  text-decoration: line-through;
-  opacity: 0.65;
-}
-
-.savings-badge {
-  font-size: 0.6rem;
-  font-weight: 700;
-  color: #d97706;
-  background: rgba(251, 191, 36, 0.1);
-  border: 1px solid rgba(251, 191, 36, 0.22);
-  padding: 0.05rem 0.3rem;
-  border-radius: 4px;
-  white-space: nowrap;
 }
 
 /* ── Row 2: qty + total + action buttons ── */
@@ -498,6 +482,12 @@ const handleDeleteAddOn = (addOnId: string) => {
   background: rgba(168,85,247,0.06);
   border: 1px solid rgba(168,85,247,0.14);
   color: #7c3aed;
+}
+
+.extra-item.member-discount {
+  background: rgba(22,163,74,0.07);
+  border: 1px solid rgba(22,163,74,0.2);
+  color: #15803d;
 }
 
 .extra-item.discount {

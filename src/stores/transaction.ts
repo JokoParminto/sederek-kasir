@@ -4,6 +4,7 @@ import type { Transaction, TransactionItem, Discount, PaymentMethod } from '@/ty
 import { useDiscount } from '@/composables/useDiscount'
 import { recordSplitBillPayment, getTransactionPayments, getTransactionTotalPaid } from '@/services/api/transactionPayment.api'
 import { transactionApi } from '@/services/api/transaction.api'
+import { memberTierApi } from '@/services/api/memberTier.api'
 
 const TRANSACTION_PREFIX = 'TXN'
 
@@ -17,6 +18,9 @@ export const useTransactionStore = defineStore('transaction', () => {
   const selectedCustomerIsMember = ref<boolean>(false)
   const selectedCustomerTier = ref<'umum' | 'akamsi' | 'vip' | null>(null)
   const selectedCustomerMemberStatus = ref<'active' | 'pending' | 'inactive'>('inactive')
+  const memberDailyUsedToday = ref<number>(0)
+  const memberDailyLimit = ref<number | null>(null)
+  const memberDailyUsageLoading = ref<boolean>(false)
   const globalDiscount = ref<Discount>({ type: 'percentage', value: 0 })
   const paymentMethod = ref<PaymentMethod>('cash')
   const holdOrders = ref<Transaction[]>([])
@@ -54,6 +58,20 @@ export const useTransactionStore = defineStore('transaction', () => {
   )
 
   const isEmpty = computed(() => items.value.length === 0)
+
+  // Total qty item di cart yang sudah dapat diskon member
+  const memberDiscountedQtyInCart = computed(() =>
+    items.value
+      .filter(i => i.memberPrice !== undefined && i.memberPrice !== null)
+      .reduce((sum, i) => sum + i.quantity, 0)
+  )
+
+  // Sisa kuota diskon hari ini (null = tidak ada limit)
+  const memberRemainingQuota = computed(() => {
+    if (memberDailyLimit.value === null) return null
+    const used = memberDailyUsedToday.value + memberDiscountedQtyInCart.value
+    return Math.max(0, memberDailyLimit.value - used)
+  })
 
   // Actions
   const generateTransactionNumber = (): string => {
@@ -237,10 +255,14 @@ export const useTransactionStore = defineStore('transaction', () => {
     // Create new array with updated items (Vue reactivity)
     // NOTE: recalculateAllPrices uses stored memberPrice per item (set when added).
     // Full re-compute via tier rules happens in KasirView after customer changes.
+    let usedInRecalc = 0
     items.value = items.value.map((item) => {
       const activeMember = selectedCustomerIsMember.value && selectedCustomerMemberStatus.value === 'active'
       const hasMemberPrice = !!item.memberPrice
-      const useMemberPrice = activeMember && hasMemberPrice
+      const limit = memberDailyLimit.value
+      const quotaOk = limit === null || (memberDailyUsedToday.value + usedInRecalc + item.quantity) <= limit
+      const useMemberPrice = activeMember && hasMemberPrice && quotaOk
+      if (useMemberPrice) usedInRecalc += item.quantity
       const newPrice = useMemberPrice ? item.memberPrice! : item.originalPrice
       const newMemberSaving = useMemberPrice ? (item.originalPrice - item.memberPrice!) * item.quantity : 0
       
@@ -299,6 +321,20 @@ export const useTransactionStore = defineStore('transaction', () => {
     selectedCustomerTier.value = memberType ?? null
     selectedCustomerMemberStatus.value = memberStatus ?? (is_member ? 'active' : 'inactive')
 
+    // Reset daily usage
+    memberDailyUsedToday.value = 0
+    memberDailyLimit.value = null
+    memberDailyUsageLoading.value = false
+
+    // Fetch daily usage jika customer aktif member
+    if (customerId && is_member && memberStatus === 'active' && memberType) {
+      memberDailyUsageLoading.value = true
+      memberTierApi.getDailyUsage(customerId)
+        .then(data => { memberDailyUsedToday.value = data.used })
+        .catch(() => { memberDailyUsedToday.value = 0 })
+        .finally(() => { memberDailyUsageLoading.value = false })
+    }
+
     if (changed && hasItems) {
       if (recalculateTimer) clearTimeout(recalculateTimer)
       recalculateTimer = setTimeout(() => {
@@ -314,6 +350,8 @@ export const useTransactionStore = defineStore('transaction', () => {
     selectedCustomerIsMember.value = false
     selectedCustomerTier.value = null
     selectedCustomerMemberStatus.value = 'inactive'
+    memberDailyUsedToday.value = 0
+    memberDailyLimit.value = null
     globalDiscount.value = { type: 'percentage', value: 0 }
     paymentMethod.value = 'cash'
   }
@@ -474,6 +512,9 @@ export const useTransactionStore = defineStore('transaction', () => {
     selectedCustomerIsMember,
     selectedCustomerTier,
     selectedCustomerMemberStatus,
+    memberDailyUsedToday,
+    memberDailyLimit,
+    memberDailyUsageLoading,
     globalDiscount,
     paymentMethod,
     holdOrders,
@@ -490,6 +531,8 @@ export const useTransactionStore = defineStore('transaction', () => {
     globalDiscountAmount,
     total,
     isEmpty,
+    memberDiscountedQtyInCart,
+    memberRemainingQuota,
 
     // Actions
     generateTransactionNumber,

@@ -21,4 +21,8 @@ export const memberTierApi = {
   setRuleProducts(ruleId: string, productIds: string[]): Promise<void> {
     return apiClient.post(`/member-tier-rules/${ruleId}/products`, { product_ids: productIds }).then(() => undefined)
   },
+
+  getDailyUsage(customerId: string): Promise<{ used: number }> {
+    return apiClient.get(`/member-tier-rules/daily-usage/${customerId}`).then((r: any) => r.data.data)
+  },
 }
