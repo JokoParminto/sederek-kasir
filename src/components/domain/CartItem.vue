@@ -122,16 +122,15 @@ const handleAddOnModalClose = () => {
   showAddOnModal.value = false
 }
 
-const handleAddOnConfirm = (addOns: CartItemAddOn[]) => {
-  // Remove existing add-ons via store (no direct prop mutation)
+const handleAddOnConfirm = (addOns: CartItemAddOn[], notes: string) => {
   const existing = [...(props.item.addOns || [])]
   existing.forEach(addon => {
     transactionStore.removeAddOnFromItem(props.item.id, addon.addOnId)
   })
-  // Add new selected add-ons
   addOns.forEach(addon => {
     transactionStore.addAddOnToItem(props.item.id, addon)
   })
+  transactionStore.updateItemNotes(props.item.id, notes)
   showAddOnModal.value = false
 }
 
@@ -173,8 +172,8 @@ const handleDeleteAddOn = (addOnId: string) => {
       </div>
     </div>
 
-    <!-- Extras: add-ons + member discount info + per-item discount + subtotal -->
-    <div v-if="hasAddOns || item.discount.value > 0 || item.is_member_price" class="extras-section">
+    <!-- Extras: add-ons + notes + member discount info + per-item discount + subtotal -->
+    <div v-if="hasAddOns || item.notes || item.discount.value > 0 || item.is_member_price" class="extras-section">
       <div v-for="addon in item.addOns" :key="addon.addOnId" class="extra-item addon">
         <AppIcon name="promo" :size="11" class="extra-icon" />
         <span class="extra-name">{{ addon.addOnName }}</span>
@@ -182,6 +181,10 @@ const handleDeleteAddOn = (addOnId: string) => {
         <button class="btn-remove-extra" @click.stop="handleDeleteAddOn(addon.addOnId)" :disabled="isPaid">
           <AppIcon name="x" :size="11" />
         </button>
+      </div>
+      <div v-if="item.notes" class="extra-item notes">
+        <AppIcon name="file-text" :size="11" class="extra-icon" />
+        <span class="extra-name">{{ item.notes }}</span>
       </div>
       <div v-if="item.is_member_price && memberSavings > 0" class="extra-item member-discount">
         <AppIcon name="star" :size="11" class="extra-icon" />
@@ -260,8 +263,10 @@ const handleDeleteAddOn = (addOnId: string) => {
     <AddOnSelectorModal
       :is-open="showAddOnModal"
       :product-name="item.productName"
+      :product-id="item.productId"
       :item-id="item.id"
       :current-add-ons="item.addOns"
+      :current-notes="item.notes"
       @close="handleAddOnModalClose"
       @confirm="handleAddOnConfirm"
     />
@@ -482,6 +487,20 @@ const handleDeleteAddOn = (addOnId: string) => {
   background: rgba(168,85,247,0.06);
   border: 1px solid rgba(168,85,247,0.14);
   color: #7c3aed;
+}
+
+.extra-item.notes {
+  background: rgba(59,130,246,0.05);
+  border: 1px solid rgba(59,130,246,0.15);
+  color: #1d4ed8;
+
+  .extra-name {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    font-weight: 500;
+    font-style: italic;
+  }
 }
 
 .extra-item.member-discount {

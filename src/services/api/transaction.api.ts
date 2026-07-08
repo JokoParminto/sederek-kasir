@@ -39,6 +39,7 @@ const normalizeTransaction = (data: any): Transaction => {
       addOns: addOns.length > 0 ? addOns : undefined,
       subtotal: parseFloat(item.total || item.subtotal) || 0,
       categoryName: item.category_name || item.categoryName || undefined,
+      notes: item.notes || undefined,
     }
   })
 

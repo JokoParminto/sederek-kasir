@@ -22,7 +22,7 @@ interface AddOnWithQuantity {
 
 interface Emits {
   close: []
-  addToCart: [productId: string, quantity: number, selectedAddOns: AddOnWithQuantity[]]
+  addToCart: [productId: string, quantity: number, selectedAddOns: AddOnWithQuantity[], notes: string]
 }
 
 const props = defineProps<Props>()
@@ -36,6 +36,7 @@ const transactionStore = useTransactionStore()
 const quantity = ref(1)
 const selectedAddOns = ref<Map<string, number>>(new Map())
 const searchQuery = ref('')
+const itemNotes = ref('')
 
 // Computed
 const tierDiscount = computed(() => {
@@ -134,7 +135,7 @@ const increaseQty = () => { quantity.value++ }
 
 const handleAddToCart = () => {
   if (!props.product) return
-  emit('addToCart', props.product.id, quantity.value, addOnsForCart.value)
+  emit('addToCart', props.product.id, quantity.value, addOnsForCart.value, itemNotes.value.trim())
   handleClose()
 }
 
@@ -142,6 +143,7 @@ const handleClose = () => {
   quantity.value = 1
   selectedAddOns.value.clear()
   searchQuery.value = ''
+  itemNotes.value = ''
   emit('close')
 }
 
@@ -197,6 +199,17 @@ watch(() => props.isOpen, async (isOpen) => {
                 <span class="qty-display">{{ quantity }}</span>
                 <button class="qty-btn" @click="increaseQty">+</button>
               </div>
+            </div>
+
+            <!-- Catatan Item -->
+            <div class="section">
+              <h3 class="section-title">Catatan</h3>
+              <textarea
+                v-model="itemNotes"
+                class="notes-input"
+                placeholder="Contoh: tanpa es, ekstra pedas..."
+                rows="2"
+              />
             </div>
           </div>
 
@@ -514,6 +527,29 @@ watch(() => props.isOpen, async (isOpen) => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* ── Notes ── */
+.notes-input {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(123, 47, 190, 0.15);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: var(--color-text-primary);
+  background: var(--color-surface-primary, white);
+  resize: none;
+  font-family: var(--font-family-body);
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(123, 47, 190, 0.1);
+  }
+
+  &::placeholder { color: var(--color-text-hint); }
 }
 
 /* ── Search ── */
@@ -865,5 +901,6 @@ watch(() => props.isOpen, async (isOpen) => {
   .addon-name { font-size: 0.8rem; }
   .addon-price { font-size: 0.75rem; }
   .section-title { font-size: 0.7rem; }
+  .notes-input { font-size: 0.78rem; padding: 0.4rem 0.6rem; rows: 2; }
 }
 </style>

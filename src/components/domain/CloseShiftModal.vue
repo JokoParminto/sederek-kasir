@@ -67,21 +67,7 @@
               </div>
               <div class="form-group inline">
                 <label class="label">Diskon/Potongan (%)</label>
-                <div class="discount-input-group">
-                  <input
-                    v-model.number="shopeeFoodDiscount"
-                    type="text" inputmode="numeric"
-                    class="input small percent"
-                    placeholder="0"
-                    min="0"
-                    max="100"
-                    @change="e => {
-                      const value = parseFloat((e.target as HTMLInputElement).value)
-                      shopeeFoodDiscount = isNaN(value) ? 0 : Math.min(100, Math.max(0, value))
-                    }"
-                  />
-                  <span class="percent-symbol">%</span>
-                </div>
+                <span class="discount-static">{{ shopeeFoodDiscount }}%</span>
               </div>
 
               <div class="summary-card compact">
@@ -208,7 +194,7 @@ const authStore = useAuthStore()
 
 const actualCash = ref(0)
 const shopeeFoodAmount = ref(0)
-const shopeeFoodDiscount = ref(0)
+const shopeeFoodDiscount = ref(20)
 const shiftSummary = ref<any | null>(null)
 const isLoadingSummary = ref(false)
 const isLoading = ref(false)
@@ -790,16 +776,10 @@ watch(
   }
 }
 
-.discount-input-group {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-
-  .percent-symbol {
-    font-weight: 600;
-    color: var(--color-text-secondary);
-    font-size: 0.75rem;
-  }
+.discount-static {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
 }
 
 .discount-nominal {

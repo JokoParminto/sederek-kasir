@@ -4,8 +4,13 @@ import { useRouter, useRoute } from 'vue-router'
 import { useToast } from '@/composables/useToast'
 import { usePullToRefresh } from '@/composables/usePullToRefresh'
 import { transactionApi } from '@/services/api/transaction.api'
+import { shiftApi } from '@/services/api/shift.api'
 import { formatRupiah, formatDateJakarta, formatTimeJakarta } from '@/utils/formatters'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
+import { useAuthStore } from '@/stores/auth'
+import { printerService } from '@/services/printer.service'
+import { printLayoutService } from '@/services/printerlayout.service'
+import type { CustomerLayoutConfig } from '@/services/printerlayout.service'
 import TransactionEditModal from '@/components/domain/TransactionEditModal.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseCard from '@/components/base/BaseCard.vue'
@@ -15,6 +20,8 @@ import PullToRefreshIndicator from '@/components/common/PullToRefreshIndicator.v
 const router = useRouter()
 const route = useRoute()
 const { error: showError } = useToast()
+const authStore = useAuthStore()
+const isPrinting = ref(false)
 
 const { pullRefreshOffset, isRefreshing, handleTouchStart, handleTouchMove, handleTouchEnd } = usePullToRefresh({
   cooldown: 3000,
@@ -24,6 +31,7 @@ const { pullRefreshOffset, isRefreshing, handleTouchStart, handleTouchMove, hand
 const isLoading = ref(false)
 const shiftId = route.params.shiftId as string
 const shift = ref<any>(null)
+const shiftFinancial = ref<any>(null)
 const transactions = ref<Array<any>>([])
 const showEditModal = ref(false)
 const selectedTransactionForEdit = ref<any>(null)
@@ -82,6 +90,148 @@ const fetchShiftData = async () => {
     showError('Gagal memuat data shift')
   } finally {
     isLoading.value = false
+  }
+  // Load financial summary separately — failures don't block the page
+  try {
+    shiftFinancial.value = await shiftApi.getShiftSummary(shiftId)
+  } catch {
+    // Financial summary unavailable — section stays hidden
+  }
+}
+
+const fin = computed(() => shiftFinancial.value)
+const isClosed = computed(() => shift.value?.status !== 'active')
+// Kas seharusnya = modal awal + penjualan cash - belanja (sama dengan modal tutup shift)
+const kasSeharusnya = computed(() => fin.value
+  ? (Number(fin.value.expected_cash) || (Number(fin.value.modal_awal) + Number(fin.value.cash_income) - Number(fin.value.total_expenses)))
+  : 0
+)
+// Kas total = modal awal + pendapatan bersih POS
+const kasTotal = computed(() => fin.value
+  ? Number(fin.value.modal_awal) + Number(fin.value.net_income || 0)
+  : 0
+)
+// Pemasukan bersih = net_income POS + income bersih shopee food (sama persis dengan modal tutup shift)
+const pemasukanBersih = computed(() => fin.value
+  ? Number(fin.value.net_income || 0) + Number(fin.value.shopee_food_net || 0)
+  : 0
+)
+const shopeeFoodNet = computed(() => fin.value ? Number(fin.value.shopee_food_net || 0) : 0)
+
+const printFinancialSummary = async () => {
+  if (!fin.value) return
+  isPrinting.value = true
+  try {
+    const printers = await printerService.getAllPrinters()
+    const printer = printers.find(p => p.type === 'customer') ?? null
+    if (!printer) return
+    if (printer.connectionType !== 'bluetooth') return
+    if (!printer.devicePath) return
+
+    const result = await printLayoutService.getLayoutByPrinterId(printer.id)
+    const cfg = result.layout as CustomerLayoutConfig
+    const previewContent = result.previewContent
+
+    const { bluetoothPrinter: bt, escpos } = await import('@/services/bluetooth-printer.service')
+
+    const storedWidth = printer.paperSize
+    const paperMm = (printer.connectionType === 'bluetooth' && storedWidth >= 80) ? 58 : storedWidth
+    const dpi = printer.dpi || 203
+    const printableDots = Math.floor((paperMm - 10) * dpi / 25.4)
+    const cols = Math.floor(printableDots / 12)
+    const div = '-'.repeat(cols)
+
+    const clean = (s: string) => String(s ?? '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim()
+    const L = (s: string) => escpos.textLine(s)
+    const fmt = (n: number) => `Rp${Number(n).toLocaleString('id-ID')}`
+    const twoCol = (left: string, right: string) => {
+      const r = clean(right).slice(0, cols - 2)
+      return clean(left).slice(0, cols - r.length - 1).padEnd(cols - r.length - 1) + ' ' + r
+    }
+
+    const sections = previewContent?.sections || {}
+    const headerArr = Array.isArray(sections.header) ? sections.header : [sections.header || {}]
+    const hd: Record<string, any> = {}
+    headerArr.forEach((f: any) => f && Object.assign(hd, f))
+    const footerSection = sections.footer || {}
+
+    const closedAt = shift.value?.closed_at ? new Date(shift.value.closed_at) : new Date()
+    const dateStr = closedAt.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' })
+    const timeStr = closedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+
+    const chunks: Uint8Array[] = [escpos.init(), ...escpos.applyFontSize(printer.fontSize), escpos.align('center')]
+
+    if (cfg.header?.show_logo) {
+      try {
+        const logoDots = Math.floor(printableDots * 2 / 3)
+        const logoModule = await import('@/assets/logo/logo-black.png')
+        chunks.push(await escpos.rasterImage(logoModule.default, logoDots), escpos.lineFeed(1))
+      } catch { /* optional */ }
+    }
+    chunks.push(escpos.bold(true), L(clean(hd.store_name || 'Sederek Kopi')), escpos.bold(false))
+    if (hd.store_address) {
+      const addr = clean(hd.store_address)
+      if (addr.length <= cols) {
+        chunks.push(L(addr))
+      } else {
+        chunks.push(L(addr.slice(0, cols)), L(addr.slice(cols, cols * 2)))
+      }
+    }
+    chunks.push(L(''), escpos.bold(true), L('LAPORAN TUTUP SHIFT'), escpos.bold(false))
+    chunks.push(L(`${dateStr} ${timeStr}`))
+    chunks.push(L(`Kasir: ${clean(shift.value?.cashier_name || authStore.userName || '-')}`))
+    chunks.push(L(div), escpos.align('left'))
+
+    const f = fin.value
+    const modalAwal    = Number(f.modal_awal || 0)
+    const totalPenjualan = Number(f.total_sales_income || 0)
+    const totalCash    = Number(f.cash_income || 0)
+    const totalQris    = Number(f.qris_income || 0)
+    const totalBelanja = Number(f.total_expenses || 0)
+    const netIncome    = Number(f.net_income || 0)
+    const sfAmount     = Number(f.shopee_food_amount || 0)
+    const sfDiscount   = Number(f.shopee_food_discount_percent || 0)
+    const sfNominal    = Number(f.shopee_food_discount_nominal || 0)
+    const sfNet        = Number(f.shopee_food_net || 0)
+    const kasNyata     = Number(f.actual_cash || 0)
+    const selisih      = Number(f.selisih || 0)
+
+    chunks.push(L(twoCol('Modal Awal', fmt(modalAwal))))
+    chunks.push(L(div))
+    chunks.push(L(twoCol('Total Penjualan', fmt(totalPenjualan))))
+    chunks.push(L(twoCol('  Cash', fmt(totalCash))))
+    chunks.push(L(twoCol('  QRIS', fmt(totalQris))))
+    chunks.push(L(div))
+    chunks.push(L(twoCol('Total Belanja', `-${fmt(totalBelanja)}`)))
+    chunks.push(L(div))
+    chunks.push(escpos.bold(true), L(twoCol('Pendapatan Bersih', fmt(netIncome))), escpos.bold(false))
+
+    if (sfAmount > 0) {
+      chunks.push(L(div))
+      chunks.push(L(twoCol('Shopee Food Gross', fmt(sfAmount))))
+      if (sfDiscount > 0) chunks.push(L(twoCol(`Diskon ${sfDiscount}%`, `-${fmt(sfNominal)}`)))
+      chunks.push(L(twoCol('Shopee Food Bersih', fmt(sfNet))))
+    }
+
+    if (kasNyata > 0) {
+      chunks.push(L(div))
+      chunks.push(L(twoCol('Kas Seharusnya', fmt(kasSeharusnya.value))))
+      chunks.push(L(twoCol('Kas Nyata', fmt(kasNyata))))
+      chunks.push(L(twoCol('Selisih', `${selisih >= 0 ? '+' : ''}${fmt(selisih)}`)))
+    }
+
+    chunks.push(L(div))
+    chunks.push(escpos.bold(true), L(twoCol('PEMASUKAN BERSIH', fmt(pemasukanBersih.value))), escpos.bold(false))
+
+    if (cfg.footer?.show_thank_you_message && footerSection.footer_text) {
+      chunks.push(escpos.align('center'), L(''), L(clean(footerSection.footer_text)))
+    }
+    chunks.push(escpos.lineFeed(3), escpos.cut())
+    await bt.printTo(printer.devicePath, escpos.concat(...chunks))
+  } catch (e: any) {
+    console.error('[DetailShiftPrint]', e?.message || e)
+  } finally {
+    isPrinting.value = false
   }
 }
 
@@ -203,6 +353,113 @@ onMounted(fetchShiftData)
             <div class="stat-content">
               <p class="stat-label">Total Diskon</p>
               <p class="stat-value">{{ formatRupiah(summaryStats.totalDiscount) }}</p>
+            </div>
+          </div>
+        </div>
+      </BaseCard>
+
+      <!-- Ringkasan Keuangan -->
+      <BaseCard v-if="fin">
+        <template #header>
+          <div class="fin-header">
+            <h3 class="section-title">Ringkasan Keuangan</h3>
+            <button class="btn-print-fin" :disabled="isPrinting" @click="printFinancialSummary">
+              <AppIcon name="printer" :size="14" />
+              {{ isPrinting ? 'Mencetak...' : 'Cetak' }}
+            </button>
+          </div>
+        </template>
+
+        <!-- Penjualan -->
+        <div class="fin-section">
+          <p class="fin-section-label">Penjualan</p>
+          <div class="fin-card">
+            <div class="fin-row">
+              <span class="fin-label">Modal Awal</span>
+              <span class="fin-value">{{ formatRupiah(fin.modal_awal) }}</span>
+            </div>
+            <div class="fin-divider" />
+            <div class="fin-row">
+              <span class="fin-label">Total Penjualan</span>
+              <span class="fin-value">{{ formatRupiah(fin.total_sales_income) }}</span>
+            </div>
+            <div class="fin-row sub">
+              <span class="fin-label">· Cash</span>
+              <span class="fin-value">{{ formatRupiah(fin.cash_income) }}</span>
+            </div>
+            <div class="fin-row sub">
+              <span class="fin-label">· QRIS</span>
+              <span class="fin-value">{{ formatRupiah(fin.qris_income) }}</span>
+            </div>
+            <div class="fin-divider" />
+            <div class="fin-row">
+              <span class="fin-label">Total Pengeluaran</span>
+              <span class="fin-value negative">-{{ formatRupiah(fin.total_expenses) }}</span>
+            </div>
+            <div class="fin-divider" />
+            <div class="fin-row total">
+              <span class="fin-label">Pendapatan Bersih</span>
+              <span class="fin-value">{{ formatRupiah(fin.net_income) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shopee Food -->
+        <div class="fin-section">
+          <p class="fin-section-label">Penjualan Shopee Food</p>
+          <div class="fin-card shopee">
+            <div class="fin-row">
+              <span class="fin-label">Total Penjualan</span>
+              <span class="fin-value">{{ formatRupiah(fin.shopee_food_amount) }}</span>
+            </div>
+            <div class="fin-row sub">
+              <span class="fin-label">· Diskon {{ fin.shopee_food_discount_percent }}%</span>
+              <span class="fin-value negative">-{{ formatRupiah(fin.shopee_food_discount_nominal) }}</span>
+            </div>
+            <div class="fin-divider" />
+            <div class="fin-row total">
+              <span class="fin-label">Income Bersih</span>
+              <span class="fin-value shopee-net">{{ formatRupiah(fin.shopee_food_net) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rekonsiliasi Kas -->
+        <div v-if="isClosed && fin.actual_cash !== null" class="fin-section">
+          <p class="fin-section-label">Rekonsiliasi Kas</p>
+          <div class="fin-card">
+            <div class="fin-row">
+              <span class="fin-label">Kas Seharusnya</span>
+              <span class="fin-value">{{ formatRupiah(kasSeharusnya) }}</span>
+            </div>
+            <div class="fin-row">
+              <span class="fin-label">Kas Nyata</span>
+              <span class="fin-value">{{ formatRupiah(fin.actual_cash) }}</span>
+            </div>
+            <div class="fin-row">
+              <span class="fin-label">Selisih</span>
+              <span class="fin-value" :class="{ positive: fin.selisih > 0, negative: fin.selisih < 0 }">
+                {{ fin.selisih >= 0 ? '+' : '' }}{{ formatRupiah(fin.selisih) }}
+              </span>
+            </div>
+          </div>
+          <div class="fin-card" style="margin-top: 0.6rem;">
+            <div class="fin-row">
+              <span class="fin-label">Kas Total</span>
+              <span class="fin-value">{{ formatRupiah(kasTotal) }}</span>
+            </div>
+            <div class="fin-row">
+              <span class="fin-label">Modal Awal</span>
+              <span class="fin-value negative">-{{ formatRupiah(fin.modal_awal) }}</span>
+            </div>
+            <div v-if="shopeeFoodNet > 0" class="fin-row">
+              <span class="fin-label">Penjualan Shopee Food</span>
+              <span class="fin-value">{{ formatRupiah(shopeeFoodNet) }}</span>
+            </div>
+            <div class="fin-divider" />
+            <div class="fin-row total">
+              <span class="fin-label">Pemasukan Bersih</span>
+              <span class="fin-value">{{ formatRupiah(pemasukanBersih) }}</span>
             </div>
           </div>
         </div>
@@ -620,6 +877,111 @@ onMounted(fetchShiftData)
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Ringkasan Keuangan header ── */
+.fin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.btn-print-fin {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid rgba(123, 47, 190, 0.3);
+  border-radius: 99px;
+  background: rgba(123, 47, 190, 0.06);
+  color: var(--brand-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(123, 47, 190, 0.12);
+    border-color: rgba(123, 47, 190, 0.5);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+/* ── Ringkasan Keuangan ── */
+.fin-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: var(--spacing-4);
+  &:last-child { margin-bottom: 0; }
+}
+
+.fin-section-label {
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  margin: 0 0 0.2rem 0;
+}
+
+.fin-card {
+  border: 1px solid rgba(123, 47, 190, 0.15);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(145deg, rgba(123, 47, 190, 0.05) 0%, rgba(123, 47, 190, 0.02) 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+
+  &.shopee {
+    background: linear-gradient(145deg, rgba(255, 193, 7, 0.07) 0%, rgba(251, 146, 60, 0.03) 100%);
+    border-color: rgba(255, 193, 7, 0.22);
+  }
+}
+
+.fin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+
+  &.sub {
+    padding-left: var(--spacing-3);
+    .fin-label { font-size: var(--font-size-xs); font-weight: 500; color: var(--color-text-tertiary); }
+    .fin-value { font-size: var(--font-size-sm); font-weight: 600; }
+  }
+
+  &.total {
+    .fin-label { font-weight: 700; color: var(--color-text-primary); font-size: var(--font-size-sm); }
+    .fin-value { font-size: var(--font-size-base); font-weight: 900; color: var(--brand-primary); }
+  }
+}
+
+.fin-label {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.fin-value {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  &.negative { color: #dc2626; }
+  &.positive { color: #16a34a; }
+  &.shopee-net { color: #d97706; }
+}
+
+.fin-divider {
+  height: 1px;
+  background: rgba(123, 47, 190, 0.1);
+  margin: 0.15rem 0;
+}
 
 /* Responsive */
 @media (max-width: 768px) {

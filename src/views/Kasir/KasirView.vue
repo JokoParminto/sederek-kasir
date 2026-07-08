@@ -227,7 +227,7 @@ const handleSelectProduct = async (product: Product) => {
   showAddToCartModal.value = true
 }
 
-const handleAddToCart = (productId: string, quantity: number, selectedAddOns: any[]) => {
+const handleAddToCart = (productId: string, quantity: number, selectedAddOns: any[], notes: string = '') => {
   const product = productStore.getProductById(productId)
   if (!product) return
 
@@ -254,7 +254,8 @@ const handleAddToCart = (productId: string, quantity: number, selectedAddOns: an
     product.price,
     quantity,
     tierMemberPrice,
-    product.categoryName
+    product.categoryName,
+    notes || undefined
   )
 
   // Add selected add-ons to the item
@@ -562,6 +563,7 @@ const handlePay = async (method: string, details?: SplitPayment | Record<string,
          quantity: item.quantity,
          discount_amount: item.discount.value,
          discount_type: item.discount.type,
+         notes: item.notes || '',
          addOns: item.addOns?.map(addOn => ({
            addOnId: addOn.addOnId,
            addOnName: addOn.addOnName,
@@ -732,17 +734,17 @@ const handleHoldOrder = async () => {
       const itemsData = transactionStore.items.map(item => ({
         product_id: item.productId,
         product_name: item.productName,
-        product_price: item.price,  // Current price to charge (member or regular)
+        product_price: item.price,
         quantity: item.quantity,
         discount_amount: item.discount.value,
         discount_type: item.discount.type,
         subtotal: item.price * item.quantity,
         total: item.subtotal,
-        // Member pricing tracking for held orders
-        original_price: item.originalPrice || item.price,  // ALWAYS the regular/base price
-        member_price: item.memberPrice || null,  // Member price if available
-        is_member_price: item.is_member_price || false,  // TRUE if member price is being used
-        member_saving: item.memberSaving || 0,  // Savings amount: (original - member) × qty
+        notes: item.notes || '',
+        original_price: item.originalPrice || item.price,
+        member_price: item.memberPrice || null,
+        is_member_price: item.is_member_price || false,
+        member_saving: item.memberSaving || 0,
         addOns: item.addOns?.map(addOn => ({
           addOnId: addOn.addOnId,
           addOnName: addOn.addOnName || '',
@@ -1022,6 +1024,7 @@ const autoSaveRemainingHeldOrder = async () => {
         discount_type: item.discount.type,
         subtotal: item.price * item.quantity,
         total: item.subtotal,
+        notes: item.notes || '',
         original_price: item.originalPrice || item.price,
         member_price: item.memberPrice || null,
         is_member_price: item.is_member_price || false,

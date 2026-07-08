@@ -318,7 +318,7 @@ function getDefaultCustomerLayout(): CustomerLayoutConfig {
       show_item_quantity: true,
       show_item_price: true,
       show_item_addons: false,
-      show_item_notes: false,
+      show_item_notes: true,
       show_member_discount: true,
       item_name_format: 'short'
     },

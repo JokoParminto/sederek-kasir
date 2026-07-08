@@ -85,7 +85,8 @@ export const useTransactionStore = defineStore('transaction', () => {
     price: number,
     quantity: number = 1,
     tierMemberPrice?: number,
-    categoryName?: string
+    categoryName?: string,
+    notes?: string
   ): string => {
 
 
@@ -126,6 +127,7 @@ export const useTransactionStore = defineStore('transaction', () => {
       addOns: [],
       subtotal: finalPrice * quantity,
       categoryName,
+      notes: notes || undefined,
     }
 
     items.value.push(newItem)
@@ -135,6 +137,11 @@ export const useTransactionStore = defineStore('transaction', () => {
 
 
     return newItem.id
+  }
+
+  const updateItemNotes = (itemId: string, notes: string): void => {
+    const item = items.value.find(i => i.id === itemId)
+    if (item) item.notes = notes || undefined
   }
 
   const updateItemQuantity = (itemId: string, quantity: number): void => {
@@ -537,6 +544,7 @@ export const useTransactionStore = defineStore('transaction', () => {
     // Actions
     generateTransactionNumber,
     addItem,
+    updateItemNotes,
     updateItemQuantity,
     updateItemSubtotal,
     removeItem,
