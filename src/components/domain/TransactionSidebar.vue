@@ -15,7 +15,7 @@ import { printerService } from '@/services/printer.service'
 import type { UiPrinter } from '@/services/printer.service'
 import { printDispatch } from '@/services/print-dispatch.service'
 import { printLayoutService } from '@/services/printerlayout.service'
-import type { BaristaLayoutConfig, KitchenLayoutConfig } from '@/services/printerlayout.service'
+import type { BaristaLayoutConfig, KitchenLayoutConfig, CustomerLayoutConfig } from '@/services/printerlayout.service'
 import { printBaristaTicket, printKitchenTicket } from '@/services/ticket-print.service'
 
 interface Props {
@@ -135,9 +135,16 @@ const baristaPrinter = ref<UiPrinter | null>(null)
 const baristaLayout = ref<BaristaLayoutConfig | null>(null)
 const kitchenPrinter = ref<UiPrinter | null>(null)
 const kitchenLayout = ref<KitchenLayoutConfig | null>(null)
-const printingOrderId = ref<string | null>(null)
-const printSuccessId  = ref<string | null>(null)
-const printErrorId    = ref<string | null>(null)
+const printingOrderId   = ref<string | null>(null)
+const printSuccessId    = ref<string | null>(null)
+const printErrorId      = ref<string | null>(null)
+const printingBillId    = ref<string | null>(null)
+const printBillSuccessId = ref<string | null>(null)
+const printBillErrorId  = ref<string | null>(null)
+
+const customerPrinter   = ref<UiPrinter | null>(null)
+const customerLayout    = ref<CustomerLayoutConfig | null>(null)
+const customerPreview   = ref<any>(null)
 
 onMounted(async () => {
   try {
@@ -157,6 +164,13 @@ onMounted(async () => {
       if (result.templateType === 'kitchen') {
         kitchenLayout.value = result.layout as KitchenLayoutConfig
       }
+    }
+    const cp = printers.find(p => p.type === 'customer') ?? null
+    customerPrinter.value = cp
+    if (cp) {
+      const result = await printLayoutService.getLayoutByPrinterId(cp.id)
+      customerLayout.value = result.layout as CustomerLayoutConfig
+      customerPreview.value = result.previewContent
     }
   } catch {
     // silent — falls back to browser print
@@ -274,6 +288,163 @@ const printHeldOrder = async (order: Transaction, fifoIndex: number) => {
     console.error('Print error:', e?.message || e)
   } finally {
     printingOrderId.value = null
+  }
+}
+
+const printHeldOrderBill = async (order: Transaction) => {
+  if (printingBillId.value) return
+  printingBillId.value = order.id
+  printBillSuccessId.value = null
+  printBillErrorId.value = null
+  try {
+    const printer = customerPrinter.value
+    if (!printer || printer.connectionType !== 'bluetooth' || !printer.devicePath) {
+      printBillErrorId.value = order.id
+      setTimeout(() => { printBillErrorId.value = null }, 3000)
+      return
+    }
+    const cfg = customerLayout.value
+    const previewContent = customerPreview.value
+    if (!cfg) throw new Error('Layout customer belum dimuat')
+
+    const { bluetoothPrinter: bt, escpos } = await import('@/services/bluetooth-printer.service')
+
+    const storedWidth = printer.paperSize
+    const paperMm = storedWidth >= 80 ? 58 : storedWidth
+    const dpi = printer.dpi || 203
+    const printableDots = Math.floor((paperMm - 10) * dpi / 25.4)
+    const cols = Math.floor(printableDots / 12)
+    const div = '-'.repeat(cols)
+
+    const clean = (s: string) => String(s ?? '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim()
+    const L = (s: string) => escpos.textLine(s)
+    const fmt = (n: any) => {
+      const val = typeof n === 'number' ? n : parseInt(String(n ?? '0').replace(/\D/g, '')) || 0
+      return `Rp${val.toLocaleString('id-ID')}`
+    }
+    const wrap = (text: string): string[] => {
+      const t = clean(text)
+      if (t.length <= cols) return [t]
+      const words = t.split(' ')
+      const lines: string[] = []
+      let cur = ''
+      for (const w of words) {
+        const next = cur ? `${cur} ${w}` : w
+        if (next.length <= cols) { cur = next }
+        else { if (cur) lines.push(cur); cur = w.slice(0, cols) }
+      }
+      if (cur) lines.push(cur)
+      return lines
+    }
+    const twoCol = (left: string, right: string) => {
+      const r = clean(right).slice(0, cols - 2)
+      return clean(left).slice(0, cols - r.length - 1).padEnd(cols - r.length - 1) + ' ' + r
+    }
+    const threeCol = (name: string, qty: string, price: string) => {
+      const qW = 4; const pW = 11
+      const nW = cols - qW - pW - 2
+      return clean(name).slice(0, nW).padEnd(nW) + ' ' +
+             clean(qty).slice(0, qW).padStart(qW) + ' ' +
+             clean(price).slice(0, pW).padStart(pW)
+    }
+
+    const sections = previewContent?.sections || {}
+    const headerArr = Array.isArray(sections.header) ? sections.header : [sections.header || {}]
+    const hd: Record<string, any> = {}
+    headerArr.forEach((f: any) => f && Object.assign(hd, f))
+    const footerSection = sections.footer || {}
+
+    const now = new Date(order.createdAt)
+    const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' })
+    const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+    const custName = order.customerName || getCustomerName(order.customerId) || 'Walk In'
+    const trxNum = getOrderNumber(order)
+
+    const chunks: Uint8Array[] = [escpos.init(), ...escpos.applyFontSize(printer.fontSize), escpos.align('center')]
+
+    if (cfg.header.show_logo) {
+      try {
+        const logoDots = Math.floor(printableDots * 2 / 3)
+        const logoModule = await import('@/assets/logo/logo-black.png')
+        chunks.push(await escpos.rasterImage(logoModule.default, logoDots), escpos.lineFeed(1))
+      } catch { /* logo optional */ }
+    }
+    if (cfg.header.show_store_name) {
+      chunks.push(escpos.bold(true), L(clean(hd.store_name || 'Sederek Kopi')), escpos.bold(false))
+    }
+    if (cfg.header.show_store_address && hd.store_address) {
+      for (const line of wrap(hd.store_address)) chunks.push(L(line))
+    }
+    if (cfg.header.show_store_phone && hd.store_phone) chunks.push(L(clean(hd.store_phone)))
+    if (cfg.header.show_store_slogan && hd.store_slogan) chunks.push(L(clean(hd.store_slogan)))
+
+    chunks.push(L(div), escpos.align('left'))
+    chunks.push(L(clean(trxNum)))
+    if (cfg.header.show_transaction_date) chunks.push(L(`${dateStr} ${timeStr}`))
+    if (cfg.header.show_customer_name) chunks.push(L(`Tamu: ${clean(custName)}`))
+    chunks.push(L(div))
+
+    // Items
+    if (cfg.item.show_item_name && cfg.item.show_item_quantity && cfg.item.show_item_price) {
+      chunks.push(escpos.bold(true), L(threeCol('Item', 'Qty', 'Subtotal')), escpos.bold(false))
+    }
+    let subtotal = 0
+    for (const item of order.items) {
+      const rawName = cfg.item.item_name_format === 'short' ? item.productName.slice(0, 16) : item.productName
+      const itemSubtotal = item.subtotal ?? (item.price * item.quantity)
+      subtotal += itemSubtotal
+      const displaySubtotal = item.is_member_price
+        ? (item.memberPrice ?? item.price) * item.quantity
+        : itemSubtotal
+      chunks.push(L(threeCol(
+        cfg.item.show_item_name ? clean(rawName) : '',
+        cfg.item.show_item_quantity ? String(item.quantity) : '',
+        cfg.item.show_item_price ? fmt(displaySubtotal) : '',
+      )))
+      if (cfg.item.show_item_price && cfg.item.show_member_discount && item.is_member_price) {
+        const saving = item.memberSaving ?? Math.max(0, (item.originalPrice - (item.memberPrice ?? item.price)) * item.quantity)
+        if (saving > 0) {
+          chunks.push(L(twoCol('  * Hrg normal', fmt(item.originalPrice * item.quantity))))
+          chunks.push(L(twoCol('  * Hemat member', `-${fmt(saving)}`)))
+        }
+      }
+      if (cfg.item.show_item_addons && item.addOns?.length) {
+        for (const a of item.addOns) {
+          const ap = a.price > 0 ? fmt(a.price * a.quantity) : ''
+          chunks.push(L(ap ? twoCol(`  + ${clean(a.addOnName)}`, ap) : `  + ${clean(a.addOnName)}`))
+        }
+      }
+      if (cfg.item.show_item_notes && item.notes) {
+        chunks.push(L(`  > ${clean(item.notes)}`))
+      }
+    }
+    chunks.push(L(div))
+
+    if (cfg.summary.show_subtotal) chunks.push(L(twoCol('Subtotal', fmt(subtotal))))
+    if (cfg.summary.show_member_savings) {
+      const memberDisc = order.items.reduce((s, i) =>
+        s + (i.memberSaving ?? (i.is_member_price ? Math.max(0, (i.originalPrice - (i.memberPrice ?? i.price)) * i.quantity) : 0)), 0)
+      if (memberDisc > 0) chunks.push(L(twoCol('Disc. Member', `-${fmt(memberDisc)}`)))
+    }
+    chunks.push(L(div))
+    if (cfg.summary.show_total) {
+      chunks.push(escpos.bold(true), L(twoCol('TOTAL', fmt(order.total))), escpos.bold(false))
+    }
+
+    if (cfg.footer.show_thank_you_message && footerSection.footer_text) {
+      chunks.push(escpos.align('center'), L(''), L(clean(footerSection.footer_text)))
+    }
+    chunks.push(escpos.lineFeed(3), escpos.cut())
+    await bt.printTo(printer.devicePath, escpos.concat(...chunks))
+
+    printBillSuccessId.value = order.id
+    setTimeout(() => { printBillSuccessId.value = null }, 2500)
+  } catch (e: any) {
+    printBillErrorId.value = order.id
+    setTimeout(() => { printBillErrorId.value = null }, 3000)
+    console.error('[BillPrint] Error:', e?.message || e)
+  } finally {
+    printingBillId.value = null
   }
 }
 
@@ -524,6 +695,31 @@ const handlePromoSelect = (promo: Promo | null) => {
                           <polyline points="6 9 6 2 18 2 18 9"/>
                           <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
                           <rect x="6" y="14" width="12" height="8"/>
+                        </svg>
+                      </button>
+                      <button
+                        class="ho-btn-bill"
+                        :class="{
+                          'ho-btn-bill--success': printBillSuccessId === order.id,
+                          'ho-btn-bill--error':   printBillErrorId   === order.id,
+                        }"
+                        @click="printHeldOrderBill(order)"
+                        :disabled="!!printingBillId"
+                        title="Print tagihan"
+                      >
+                        <AppIcon v-if="printingBillId === order.id" name="loader" :size="15" :spin="true" />
+                        <svg v-else-if="printBillSuccessId === order.id" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        <svg v-else-if="printBillErrorId === order.id" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                        <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                          <line x1="16" y1="13" x2="8" y2="13"/>
+                          <line x1="16" y1="17" x2="8" y2="17"/>
+                          <polyline points="10 9 9 9 8 9"/>
                         </svg>
                       </button>
                       <button
@@ -1431,6 +1627,41 @@ const handlePromoSelect = (promo: Promo | null) => {
   }
 
   &.ho-btn-print--error {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #dc2626;
+  }
+}
+
+.ho-btn-bill {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  background: rgba(14, 165, 233, 0.07);
+  color: #0284c7;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    background: rgba(14, 165, 233, 0.14);
+    border-color: rgba(14, 165, 233, 0.35);
+  }
+
+  &:disabled { cursor: not-allowed; opacity: 0.6; }
+  &:active:not(:disabled) { transform: scale(0.95); }
+
+  &.ho-btn-bill--success {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: #059669;
+  }
+
+  &.ho-btn-bill--error {
     background: rgba(239, 68, 68, 0.1);
     border-color: rgba(239, 68, 68, 0.35);
     color: #dc2626;
