@@ -23,12 +23,18 @@ interface Props {
   globalDiscount: Discount
   subtotal: number
   customers: Customer[]
+  customersTotal?: number
   selectedCustomerId: string | null
+  selectedCustomer?: Customer | null
+  customerPickerOpen?: boolean
+  customerPickerCovered?: boolean
   isLoading?: boolean
+  isLoadingCustomers?: boolean
   isCreatingCustomer?: boolean
   isCustomerLocked?: boolean
   isLoadingMoreCustomers?: boolean
   hasMoreCustomers?: boolean
+  customerLoadMoreError?: string
   heldOrders: Transaction[]
   showHeldOrdersModal?: boolean
   loadingHeldOrderId?: string | null
@@ -40,7 +46,9 @@ interface Emits {
   applyItemDiscount: [itemId: string, discount: Discount]
   applyGlobalDiscount: [discount: Discount]
   selectCustomer: [customerId: string | null]
-  addNewCustomer: [customer: Omit<Customer, 'id' | 'last_transaction'>]
+  addNewCustomer: []
+  editCustomer: [customer: Customer]
+  updateCustomerPickerOpen: [value: boolean]
   checkout: []
   holdOrder: []
   openSplitBill: []
@@ -50,6 +58,7 @@ interface Emits {
   openHeldOrdersModal: []
   closeHeldOrdersModal: []
   loadMoreCustomers: []
+  retryCustomers: []
   searchCustomers: [query: string]
   fetchCustomers: []
 }
@@ -495,16 +504,24 @@ const handlePromoSelect = (promo: Promo | null) => {
       <div class="customer-selector-wrapper">
         <div class="customer-selector-inner">
           <CustomerSelector
+            :model-value="customerPickerOpen ?? false"
             :customers="customers"
+            :total="customersTotal"
             :selectedCustomerId="selectedCustomerId"
+            :selected-customer="selectedCustomer"
             :is-disabled="isCustomerLocked"
-            :is-creating="isCreatingCustomer"
+            :is-loading="isLoadingCustomers"
             :is-loading-more="isLoadingMoreCustomers"
             :has-more="hasMoreCustomers"
+            :load-more-error="customerLoadMoreError"
+            :is-covered="customerPickerCovered"
+            @update:model-value="$emit('updateCustomerPickerOpen', $event)"
             @select="handleCustomerSelect"
-            @add-new="$emit('addNewCustomer', $event)"
+            @add-new="$emit('addNewCustomer')"
+            @edit="$emit('editCustomer', $event)"
             @open="$emit('fetchCustomers')"
             @load-more="$emit('loadMoreCustomers')"
+            @retry="$emit('retryCustomers')"
             @search="$emit('searchCustomers', $event)"
           />
         </div>

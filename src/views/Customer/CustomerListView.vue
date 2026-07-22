@@ -8,19 +8,17 @@ import { useToast } from '@/composables/useToast'
 import { usePullToRefresh } from '@/composables/usePullToRefresh'
 import PullToRefreshIndicator from '@/components/common/PullToRefreshIndicator.vue'
 import type { Customer } from '@/types'
-import { DEFAULT_AVATAR } from '@/utils/constants'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseSearchBar from '@/components/base/BaseSearchBar.vue'
 import StatusBadge from '@/components/base/StatusBadge.vue'
 import BaseBadge from '@/components/base/BaseBadge.vue'
 import BasePagination from '@/components/base/BasePagination.vue'
-import BaseBottomSheet from '@/components/base/BaseBottomSheet.vue'
-import BaseTextField from '@/components/base/BaseTextField.vue'
 import BaseCheckbox from '@/components/base/BaseCheckbox.vue'
 import BaseDataTable from '@/components/base/BaseDataTable.vue'
 import type { Column } from '@/components/base/BaseTableHeader.vue'
 import TableActionButtons from '@/components/table/TableActionButtons.vue'
 import ConfirmationModal from '@/components/common/ConfirmationModal.vue'
+import CustomerFormModal from '@/components/domain/CustomerFormModal.vue'
 import type { ActionIconKey } from '@/utils/tableActionIcons'
 
 interface Action {
@@ -31,6 +29,11 @@ interface Action {
   disabled?: boolean
   onClick: () => void | Promise<void>
 }
+
+type CustomerFormPayload = Pick<
+  Customer,
+  'name' | 'phone_number' | 'avatar_url' | 'is_member' | 'total_spending' | 'member_type' | 'member_status'
+>
 
 const router = useRouter()
 const customerStore = useCustomerStore()
@@ -122,15 +125,6 @@ const selectedCustomer = ref<Customer | null>(null)
 const showDeleteConfirm = ref(false)
 const customerToDelete = ref<string | null>(null)
 
-// Form state
-const formData = ref({
-  name: '',
-  phone_number: '',
-  avatar_url: DEFAULT_AVATAR,
-  member_type: null as 'umum' | 'akamsi' | 'vip' | null,
-  member_status: 'inactive' as 'active' | 'pending' | 'inactive',
-})
-const formError = ref('')
 const submitError = ref('')
 const isSubmitting = ref(false)
 
@@ -147,29 +141,13 @@ const toggleActionMenu = (customerId: string) => {
 
 
 const openCreateModal = () => {
-   selectedCustomer.value = null
-   formData.value = {
-     name: '',
-     phone_number: '',
-     avatar_url: DEFAULT_AVATAR,
-     member_type: null,
-     member_status: 'inactive',
-   }
-   formError.value = ''
-   submitError.value = ''
-   isModalOpen.value = true
- }
+  selectedCustomer.value = null
+  submitError.value = ''
+  isModalOpen.value = true
+}
 
 const openEditModal = (customer: Customer) => {
   selectedCustomer.value = customer
-  formData.value = {
-    name: customer.name,
-    phone_number: (customer.phone_number || '').replace(/\D/g, ''),
-    avatar_url: customer.avatar_url || DEFAULT_AVATAR,
-    member_type: customer.member_type ?? null,
-    member_status: customer.member_status ?? 'inactive',
-  }
-  formError.value = ''
   submitError.value = ''
   isModalOpen.value = true
 }
@@ -181,7 +159,7 @@ const closeModal = async (isSubmitted: boolean = false) => {
   // Refresh customers if form was submitted
   if (isSubmitted) {
     try {
-      await customerStore.fetchCustomers()
+      await fetchPage()
     } catch (err) {
       showError('Gagal memuat data customers')
     }
@@ -246,48 +224,17 @@ const handleSearch = (query: string) => {
   fetchPage()
 }
 
-const handlePhoneNumberInput = (event: Event) => {
-  const input = event.target as HTMLInputElement
-  // Filter hanya angka, hapus karakter yang bukan digit
-  const filteredValue = input.value.replace(/\D/g, '')
-  formData.value.phone_number = filteredValue
-}
-
-
-const handleSubmitForm = async () => {
-  formError.value = ''
+const handleSubmitForm = async (customerData: CustomerFormPayload) => {
   submitError.value = ''
-
-  if (!formData.value.name.trim()) {
-    formError.value = 'Nama customer harus diisi'
-    return
-  }
-
-  if (formData.value.phone_number.trim() && !/^\d+$/.test(formData.value.phone_number)) {
-    formError.value = 'Nomor telepon hanya boleh berisi angka'
-    return
-  }
 
   try {
     isSubmitting.value = true
 
-    const memberType = formData.value.member_type
-    const memberStatus = formData.value.member_status
-    const customerData = {
-      name: formData.value.name.trim(),
-      phone_number: formData.value.phone_number.trim(),
-      avatar_url: formData.value.avatar_url || DEFAULT_AVATAR,
-      is_member: memberType !== null && memberStatus === 'active',
-      total_spending: 0,
-      member_type: memberType,
-      member_status: memberStatus,
-    }
-
     if (selectedCustomer.value) {
-      await customerApi.updateCustomer(selectedCustomer.value.id, customerData as any)
+      await customerApi.updateCustomer(selectedCustomer.value.id, customerData)
       showSuccess('Customer berhasil diupdate')
     } else {
-      await customerApi.createCustomer(customerData as any)
+      await customerApi.createCustomer(customerData)
       showSuccess('Customer berhasil ditambahkan')
     }
 
@@ -430,79 +377,14 @@ const topSpenders = computed(() => customerStore.topCustomers.slice(0, 5))
        </div>
      </div>
 
-    <!-- Customer Form Sheet -->
-    <BaseBottomSheet
-      v-model="isModalOpen"
-      :title="selectedCustomer ? 'Edit Customer' : 'Tambah Customer'"
+    <CustomerFormModal
+      :is-open="isModalOpen"
+      :customer="selectedCustomer"
+      :is-submitting="isSubmitting"
+      :submit-error="submitError"
       @close="closeModal(false)"
-    >
-      <form @submit.prevent="handleSubmitForm">
-        <BaseTextField
-          v-model="formData.name"
-          label="Nama Lengkap"
-          placeholder="Contoh: Andi Wijaya"
-          required
-        />
-
-        <BaseTextField
-          :model-value="formData.phone_number"
-          label="Nomor Telepon"
-          placeholder="Contoh: 081234567890"
-          :error="formError"
-          @update:model-value="(val) => { formData.phone_number = val.replace(/\D/g, '') }"
-        />
-
-        <BaseTextField
-          v-model="formData.avatar_url"
-          label="Avatar (Emoji)"
-          placeholder="Contoh: 👤"
-          :maxlength="2"
-        />
-
-        <!-- Member Tier -->
-        <div class="member-section">
-          <label class="member-section-label">Tipe Member</label>
-          <div class="tier-pills">
-            <button type="button"
-              v-for="opt in [{ value: null, label: 'Non-Member', icon: '—' }, { value: 'umum', label: 'Umum', icon: 'U' }, { value: 'akamsi', label: 'Akamsi', icon: 'A' }, { value: 'vip', label: 'VIP', icon: '★' }]"
-              :key="String(opt.value)"
-              class="tier-pill"
-              :class="[`tier-pill--${opt.value ?? 'none'}`, { 'tier-pill--active': formData.member_type === opt.value }]"
-              @click="formData.member_type = opt.value as any"
-            >
-              <span class="tier-pill-icon">{{ opt.icon }}</span>
-              <span class="tier-pill-label">{{ opt.label }}</span>
-            </button>
-          </div>
-
-          <div class="status-row">
-            <span class="status-row-label">Status:</span>
-            <div class="status-pills">
-              <button type="button"
-                v-for="s in [{ value: 'active', label: 'Aktif' }, { value: 'pending', label: 'Pending' }, { value: 'inactive', label: 'Nonaktif' }]"
-                :key="s.value"
-                class="status-pill"
-                :class="[`status-pill--val-${s.value}`, { 'status-pill--selected': formData.member_status === s.value }]"
-                @click="formData.member_status = s.value as any"
-              >{{ s.label }}</button>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="submitError" class="form-submit-error">
-          {{ submitError }}
-        </div>
-      </form>
-
-      <template #footer>
-        <BaseButton variant="secondary" type="button" :disabled="isSubmitting" @click="closeModal(false)">
-          Batal
-        </BaseButton>
-        <BaseButton variant="primary" :loading="isSubmitting" @click="handleSubmitForm">
-          {{ selectedCustomer ? 'Update' : 'Simpan' }}
-        </BaseButton>
-      </template>
-    </BaseBottomSheet>
+      @save="handleSubmitForm"
+    />
 
     <!-- Delete Confirmation Modal -->
     <ConfirmationModal

@@ -24,6 +24,7 @@ import ShiftControlPanel from '@/components/domain/ShiftControlPanel.vue'
 import ExpenseModal from '@/components/domain/ExpenseModal.vue'
 import CloseShiftModal from '@/components/domain/CloseShiftModal.vue'
 import AddToCartModal from '@/components/domain/AddToCartModal.vue'
+import CustomerFormModal from '@/components/domain/CustomerFormModal.vue'
 import PullToRefreshIndicator from '@/components/common/PullToRefreshIndicator.vue'
 import { usePullToRefresh } from '@/composables/usePullToRefresh'
 
@@ -40,6 +41,11 @@ const { success: showSuccess, error: showError } = useToast()
 // State
 const isLoading = ref(false)
 const isCreatingCustomer = ref(false)
+const isUpdatingCustomer = ref(false)
+const isCustomerFormOpen = ref(false)
+const isCustomerPickerOpen = ref(false)
+const customerBeingEdited = ref<Customer | null>(null)
+const customerFormError = ref('')
 const showPaymentModal = ref(false)
 const showHeldOrdersModal = ref(false)
 const showExpenseModal = ref(false)
@@ -51,10 +57,13 @@ const CART_SPLIT_ID = 'CART_SPLIT'
 const cartSplitTransaction = ref<Transaction | null>(null)
 const selectedProductForModal = ref<Product | null>(null)
 const customers = ref<Customer[]>([])
+const selectedCustomerDetails = ref<Customer | null>(null)
 const customersPage = ref(1)
 const customersTotal = ref(0)
 const customersSearch = ref('')
+const isLoadingCustomers = ref(false)
 const isLoadingMoreCustomers = ref(false)
+const customerLoadMoreError = ref('')
 const hasMoreCustomers = computed(() => customers.value.length < customersTotal.value)
 const allSplitTransactions = computed(() =>
   cartSplitTransaction.value
@@ -75,6 +84,7 @@ const shiftControlPanelRef = ref<InstanceType<typeof ShiftControlPanel> | null>(
 // Computed: Get selected customer and check if member
 const selectedCustomer = computed(() =>
   customers.value.find(c => c.id === transactionStore.selectedCustomerId)
+    ?? (selectedCustomerDetails.value?.id === transactionStore.selectedCustomerId ? selectedCustomerDetails.value : null)
 )
 
 const is_selected_customer_member = computed(() =>
@@ -706,6 +716,7 @@ const refreshCartFromServer = async () => {
     transactionStore.clearTransaction()
     if (heldOrder.customerId) {
       const customerFound = customers.value.find(c => c.id === heldOrder.customerId)
+      if (customerFound) selectedCustomerDetails.value = customerFound
       transactionStore.setSelectedCustomer(
         heldOrder.customerId,
         customerFound?.is_member ?? heldOrder.customerIsMember ?? false,
@@ -911,6 +922,7 @@ const handleLoadHeldOrder = async (orderId: string) => {
         } as any)
       }
       const customerMeta = customers.value.find(c => c.id === heldOrder.customerId)
+      if (customerMeta) selectedCustomerDetails.value = customerMeta
       transactionStore.setSelectedCustomer(
         heldOrder.customerId,
         isMember,
@@ -1279,11 +1291,15 @@ const reapplyTierDiscounts = () => {
 }
 
 // Handle customer selection
+let customerSelectionGeneration = 0
 const handleSelectCustomer = (customerId: string | null) => {
-  const selectedCustomer = customers.value.find(c => c.id === customerId)
-  const is_member = selectedCustomer?.is_member || false
-  const memberType = selectedCustomer?.member_type ?? null
-  const memberStatus = selectedCustomer?.member_status ?? 'inactive'
+  const selectionGeneration = ++customerSelectionGeneration
+  const customer = customers.value.find(item => item.id === customerId)
+    ?? (selectedCustomerDetails.value?.id === customerId ? selectedCustomerDetails.value : null)
+  selectedCustomerDetails.value = customer
+  const is_member = customer?.is_member || false
+  const memberType = customer?.member_type ?? null
+  const memberStatus = customer?.member_status ?? 'inactive'
 
   transactionStore.setSelectedCustomer(customerId, is_member, memberType, memberStatus)
   syncDailyLimitToStore()
@@ -1294,7 +1310,7 @@ const handleSelectCustomer = (customerId: string | null) => {
     const stopWatch = watch(
       () => transactionStore.memberDailyUsageLoading,
       (loading) => {
-        if (!loading) {
+        if (!loading && selectionGeneration === customerSelectionGeneration && transactionStore.selectedCustomerId === customerId) {
           stopWatch()
           syncDailyLimitToStore()
           reapplyTierDiscounts()
@@ -1307,69 +1323,137 @@ const handleSelectCustomer = (customerId: string | null) => {
   }
 }
 
-// Handle add new customer
-const handleAddNewCustomer = async (newCustomer: any) => {
-  isCreatingCustomer.value = true
+type CustomerFormPayload = Pick<
+  Customer,
+  'name' | 'phone_number' | 'avatar_url' | 'is_member' | 'total_spending' | 'member_type' | 'member_status'
+>
 
+const openCreateCustomer = () => {
+  customerBeingEdited.value = null
+  customerFormError.value = ''
+  isCustomerFormOpen.value = true
+}
+
+const openEditCustomer = (customer: Customer) => {
+  customerBeingEdited.value = customer
+  customerFormError.value = ''
+  isCustomerFormOpen.value = true
+}
+
+const closeEditCustomer = () => {
+  if (isCreatingCustomer.value || isUpdatingCustomer.value) return
+  isCustomerFormOpen.value = false
+  customerBeingEdited.value = null
+  customerFormError.value = ''
+}
+
+const handleSaveCustomer = async (payload: CustomerFormPayload) => {
+  const customer = customerBeingEdited.value
+  if (isCreatingCustomer.value || isUpdatingCustomer.value) return
+
+  if (customer) isUpdatingCustomer.value = true
+  else isCreatingCustomer.value = true
+  customerFormError.value = ''
   try {
-    const customer = await customerApi.createCustomer({
-      name: newCustomer.name,
-      phone_number: newCustomer.phone_number,
-      avatar_url: newCustomer.avatar_url || '',
-      is_member: newCustomer.is_member || false,
-      total_spending: newCustomer.total_spending || 0,
-    })
+    if (customer) {
+      const updated = await customerApi.updateCustomer(customer.id, payload)
+      const index = customers.value.findIndex(item => item.id === updated.id)
+      if (index >= 0) customers.value.splice(index, 1, updated)
 
-    customers.value.push(customer)
-    transactionStore.setSelectedCustomer(
-      customer.id,
-      customer.is_member || false,
-      customer.member_type ?? null,
-      customer.member_status ?? 'inactive'
-    )
-    showSuccess(`✓ ${customer.name} ditambahkan`)
-  } catch (err) {
-    showError('Gagal menambahkan customer')
+      if (transactionStore.selectedCustomerId === updated.id) {
+        selectedCustomerDetails.value = updated
+        handleSelectCustomer(updated.id)
+      }
+
+      showSuccess(`${updated.name} berhasil diupdate`)
+    } else {
+      const created = await customerApi.createCustomer(payload)
+      customers.value = [created, ...customers.value.filter(item => item.id !== created.id)]
+      customersTotal.value += 1
+      handleSelectCustomer(created.id)
+      showSuccess(`${created.name} berhasil ditambahkan`)
+      isCustomerPickerOpen.value = false
+    }
+
+    isCustomerFormOpen.value = false
+    customerBeingEdited.value = null
+  } catch (err: any) {
+    customerFormError.value = err?.response?.data?.error?.message || err?.message || 'Gagal menyimpan customer'
   } finally {
     isCreatingCustomer.value = false
+    isUpdatingCustomer.value = false
   }
 }
 
-const CUSTOMER_LIMIT = 20
+const CUSTOMER_LIMIT = 10
+let customerRequestGeneration = 0
+let failedCustomerRequest: { type: 'initial' | 'more'; search: string } | null = null
 
 const loadInitialCustomers = async (search = '') => {
+  const generation = ++customerRequestGeneration
+  isLoadingCustomers.value = true
+  isLoadingMoreCustomers.value = false
+  customerLoadMoreError.value = ''
+  failedCustomerRequest = null
   try {
     customersSearch.value = search
     customersPage.value = 1
     const { customers: loaded, total } = await customerApi.getAllCustomers({
       page: 1, limit: CUSTOMER_LIMIT, ...(search ? { search } : {}),
     })
+    if (generation !== customerRequestGeneration) return
     customers.value = loaded
     customersTotal.value = total
-  } catch {}
+    const selectedId = transactionStore.selectedCustomerId
+    const selectedInPage = loaded.find(customer => customer.id === selectedId)
+    if (selectedInPage) selectedCustomerDetails.value = selectedInPage
+  } catch {
+    if (generation === customerRequestGeneration) {
+      customerLoadMoreError.value = 'Gagal memuat customer'
+      failedCustomerRequest = { type: 'initial', search }
+    }
+  } finally {
+    if (generation === customerRequestGeneration) isLoadingCustomers.value = false
+  }
 }
 
 const loadMoreCustomers = async () => {
-  if (isLoadingMoreCustomers.value || !hasMoreCustomers.value) return
+  if (isLoadingCustomers.value || isLoadingMoreCustomers.value || !hasMoreCustomers.value) return
+  const generation = customerRequestGeneration
+  const search = customersSearch.value
   isLoadingMoreCustomers.value = true
+  customerLoadMoreError.value = ''
+  failedCustomerRequest = null
   try {
     const nextPage = customersPage.value + 1
     const { customers: more, total } = await customerApi.getAllCustomers({
       page: nextPage, limit: CUSTOMER_LIMIT,
-      ...(customersSearch.value ? { search: customersSearch.value } : {}),
+      ...(search ? { search } : {}),
     })
-    customers.value = [...customers.value, ...more]
+    if (generation !== customerRequestGeneration || search !== customersSearch.value) return
+    const existingIds = new Set(customers.value.map(customer => customer.id))
+    customers.value = [...customers.value, ...more.filter(customer => !existingIds.has(customer.id))]
     customersTotal.value = total
     customersPage.value = nextPage
+  } catch {
+    if (generation === customerRequestGeneration) {
+      customerLoadMoreError.value = 'Gagal memuat halaman berikutnya'
+      failedCustomerRequest = { type: 'more', search }
+    }
   } finally {
-    isLoadingMoreCustomers.value = false
+    if (generation === customerRequestGeneration) isLoadingMoreCustomers.value = false
   }
 }
 
 const handleCustomerSearch = (query: string) => loadInitialCustomers(query)
 
-// Re-fetch customers from API (called when CustomerSelector modal opens)
-const refreshCustomers = () => loadInitialCustomers(customersSearch.value)
+const retryCustomers = () => {
+  if (failedCustomerRequest?.type === 'more') loadMoreCustomers()
+  else loadInitialCustomers(failedCustomerRequest?.search ?? customersSearch.value)
+}
+
+// Re-fetch customers from API when the bottom sheet opens.
+const refreshCustomers = () => loadInitialCustomers('')
 
 // Category filtering - Fetch from API
 const handleSelectCategory = async (categoryId: string | null) => {
@@ -1512,12 +1596,18 @@ const handleModalAwalInput = (event: Event) => {
         :global-discount="transactionStore.globalDiscount"
         :subtotal="transactionStore.subtotal"
         :customers="customers"
+        :customers-total="customersTotal"
         :selected-customer-id="transactionStore.selectedCustomerId"
+        :selected-customer="selectedCustomer"
+        :customer-picker-open="isCustomerPickerOpen"
+        :customer-picker-covered="isCustomerFormOpen"
         :is-customer-locked="false"
         :is-loading="isLoading"
+        :is-loading-customers="isLoadingCustomers"
         :is-creating-customer="isCreatingCustomer"
         :is-loading-more-customers="isLoadingMoreCustomers"
         :has-more-customers="hasMoreCustomers"
+        :customer-load-more-error="customerLoadMoreError"
         :held-orders="heldOrders"
         :show-held-orders-modal="showHeldOrdersModal"
         :loading-held-order-id="loadingHeldOrderId"
@@ -1526,7 +1616,9 @@ const handleModalAwalInput = (event: Event) => {
         @apply-item-discount="handleApplyItemDiscount"
         @apply-global-discount="handleApplyGlobalDiscount"
         @select-customer="handleSelectCustomer"
-        @add-new-customer="handleAddNewCustomer"
+        @add-new-customer="openCreateCustomer"
+        @edit-customer="openEditCustomer"
+        @update-customer-picker-open="isCustomerPickerOpen = $event"
         @checkout="handleOpenPayment"
         @hold-order="handleHoldOrder"
         @open-split-bill="handleOpenSplitBill"
@@ -1537,9 +1629,20 @@ const handleModalAwalInput = (event: Event) => {
         @close-held-orders-modal="showHeldOrdersModal = false"
         @fetch-customers="refreshCustomers"
         @load-more-customers="loadMoreCustomers"
+        @retry-customers="retryCustomers"
         @search-customers="handleCustomerSearch"
       />
     </div>
+
+    <CustomerFormModal
+      :is-open="isCustomerFormOpen"
+      :customer="customerBeingEdited"
+      :is-submitting="isCreatingCustomer || isUpdatingCustomer"
+      :submit-error="customerFormError"
+      :z-index="10010"
+      @close="closeEditCustomer"
+      @save="handleSaveCustomer"
+    />
 
     <!-- Lock Overlay - When Shift Not Active -->
     <div v-if="!shiftStore.isShiftActive" class="lock-overlay">

@@ -1,873 +1,424 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import BaseBottomSheet from '@/components/base/BaseBottomSheet.vue'
 import type { Customer } from '@/types'
-import { formatPhoneNumber } from '@/utils/formatters'
 
 interface Props {
+  modelValue: boolean
   customers: Customer[]
   selectedCustomerId: string | null
+  selectedCustomer?: Customer | null
+  total?: number
   isLoading?: boolean
   isDisabled?: boolean
-  isCreating?: boolean
   isLoadingMore?: boolean
   hasMore?: boolean
+  loadMoreError?: string
+  isCovered?: boolean
 }
 
-interface Emits {
+const props = withDefaults(defineProps<Props>(), {
+  total: 0,
+  isLoading: false,
+  isDisabled: false,
+  isLoadingMore: false,
+  hasMore: false,
+  loadMoreError: '',
+  isCovered: false,
+})
+
+const emit = defineEmits<{
+  'update:modelValue': [value: boolean]
   select: [customerId: string | null]
-  addNew: [customer: Omit<Customer, 'id' | 'last_transaction'>]
+  addNew: []
   open: []
   loadMore: []
+  retry: []
   search: [query: string]
-}
+  edit: [customer: Customer]
+}>()
 
-const props = defineProps<Props>()
-const emit = defineEmits<Emits>()
-
-const showModal   = ref(false)
-const showAddForm = ref(false)
+const showSheet = computed({
+  get: () => props.modelValue,
+  set: value => emit('update:modelValue', value),
+})
 const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
-const listBodyRef = ref<HTMLElement | null>(null)
+const scrollAreaRef = ref<HTMLElement | null>(null)
 const sentinelRef = ref<HTMLElement | null>(null)
-const newCustomer = ref({ name: '', phone_number: '' })
-const prevCustomerCount = ref(0)
 
-// Tutup form hanya setelah API selesai — sukses = customers bertambah
-watch(() => props.isCreating, (cur, prev) => {
-  if (prev === true && cur === false) {
-    if (props.customers.length > prevCustomerCount.value) {
-      newCustomer.value = { name: '', phone_number: '' }
-      showAddForm.value = false
-      searchQuery.value = ''
-    }
-  }
+const activeCustomer = computed(() =>
+  props.customers.find(customer => customer.id === props.selectedCustomerId)
+    ?? (props.selectedCustomer?.id === props.selectedCustomerId ? props.selectedCustomer : null)
+)
+
+const loadedLabel = computed(() => {
+  const total = Math.max(props.total, props.customers.length)
+  return `${props.customers.length} dari ${total} customer`
 })
 
-// Server-side search — debounced 300ms
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(searchQuery, (query) => {
+  if (!showSheet.value) return
   if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => emit('search', query), 300)
+  searchTimer = setTimeout(() => emit('search', query.trim()), 300)
 })
 
-// Infinite scroll — IntersectionObserver on sentinel inside list-body
 let observer: IntersectionObserver | null = null
-
 const setupObserver = () => {
   observer?.disconnect()
-  if (!sentinelRef.value || !listBodyRef.value) return
+  if (!showSheet.value || props.isCovered || !sentinelRef.value || !scrollAreaRef.value) return
+
   observer = new IntersectionObserver(
-    (entries) => {
-      if (entries[0]?.isIntersecting && props.hasMore && !props.isLoadingMore) {
+    entries => {
+      if (entries[0]?.isIntersecting && props.hasMore && !props.isLoading && !props.isLoadingMore) {
         emit('loadMore')
       }
     },
-    { root: listBodyRef.value, threshold: 0.1 }
+    { root: scrollAreaRef.value, rootMargin: '160px 0px', threshold: 0.01 }
   )
   observer.observe(sentinelRef.value)
 }
 
-onMounted(setupObserver)
+watch(
+  () => [showSheet.value, props.isCovered, props.customers.length, props.hasMore] as const,
+  () => nextTick(setupObserver)
+)
+
+watch(() => props.modelValue, (isOpen) => {
+  if (isOpen) return
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
+  searchQuery.value = ''
+  observer?.disconnect()
+})
+
 onUnmounted(() => {
   observer?.disconnect()
   if (searchTimer) clearTimeout(searchTimer)
 })
 
-const selectedCustomer = computed(() =>
-  props.customers.find(c => c.id === props.selectedCustomerId)
-)
-
-const openModal = () => {
+const openSheet = () => {
   if (props.isDisabled) return
-  emit('open')
-  showModal.value = true
-  showAddForm.value = false
   searchQuery.value = ''
+  showSheet.value = true
+  emit('open')
   nextTick(() => {
     searchInputRef.value?.focus()
     setupObserver()
   })
 }
 
-const closeModal = () => {
-  showModal.value = false
-  showAddForm.value = false
+const closeSheet = () => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
+  showSheet.value = false
   searchQuery.value = ''
-  newCustomer.value = { name: '', phone_number: '' }
+  observer?.disconnect()
 }
 
-const handleSelectCustomer = (customerId: string | null) => {
+const handleSelect = (customerId: string | null) => {
   emit('select', customerId)
-  closeModal()
+  closeSheet()
 }
 
-const handlePhoneNumberInput = (event: Event) => {
-  const input = event.target as HTMLInputElement
-  newCustomer.value.phone_number = input.value.replace(/\D/g, '')
+const handleAdd = () => {
+  emit('addNew')
 }
 
-const handleAddCustomer = () => {
-  if (!newCustomer.value.name.trim() || props.isCreating) return
-  prevCustomerCount.value = props.customers.length
-  emit('addNew', {
-    name: newCustomer.value.name.trim(),
-    phone_number: newCustomer.value.phone_number
-      ? formatPhoneNumber(newCustomer.value.phone_number)
-      : '',
-    avatar_url: '',
-    is_member: false,
-    total_spending: 0,
-    created_at: new Date(),
-    updated_at: new Date(),
-  })
-  // TIDAK tutup form di sini — watch isCreating yang handle
+const handleEdit = (customer: Customer) => {
+  emit('edit', customer)
 }
 </script>
 
 <template>
-  <!-- State: ada pilihan → chip dengan tombol hapus pisah -->
-  <div v-if="selectedCustomer" class="selected-chip" :class="{ disabled: isDisabled }">
-    <button class="chip-main" @click="openModal" :disabled="isDisabled">
-      <div class="chip-avatar">{{ selectedCustomer.name.charAt(0).toUpperCase() }}</div>
-      <span class="chip-name">{{ selectedCustomer.name }}</span>
+  <div v-if="activeCustomer" class="selected-chip" :class="{ disabled: isDisabled }">
+    <button class="chip-main" :disabled="isDisabled" @click="openSheet">
+      <div class="chip-avatar">{{ activeCustomer.name.charAt(0).toUpperCase() }}</div>
+      <span class="chip-name">{{ activeCustomer.name }}</span>
       <span
-        v-if="selectedCustomer.is_member && selectedCustomer.member_status === 'active'"
+        v-if="activeCustomer.is_member && activeCustomer.member_status === 'active'"
         class="chip-tier-badge"
-        :class="`chip-tier-badge--${selectedCustomer.member_type}`"
-      >{{ selectedCustomer.member_type?.toUpperCase() ?? 'MEMBER' }}</span>
+        :class="`chip-tier-badge--${activeCustomer.member_type}`"
+      >{{ activeCustomer.member_type?.toUpperCase() ?? 'MEMBER' }}</span>
       <span class="chip-change">Ganti</span>
     </button>
-    <button v-if="!isDisabled" class="chip-clear" @click="handleSelectCustomer(null)" title="Hapus pilihan">
+    <button v-if="!isDisabled" class="chip-clear" title="Hapus pilihan" @click="handleSelect(null)">
       <AppIcon name="x" :size="14" />
     </button>
-    <AppIcon v-if="isDisabled" name="lock" :size="13" class="chip-lock" />
+    <AppIcon v-else name="lock" :size="13" class="chip-lock" />
   </div>
 
-  <!-- State: kosong → button pick -->
-  <button
-    v-else
-    class="pick-button"
-    @click="openModal"
-    :disabled="isDisabled"
-  >
-    <AppIcon name="search" :size="14" class="pick-icon" />
+  <button v-else class="pick-button" :disabled="isDisabled" @click="openSheet">
+    <AppIcon name="search" :size="16" class="pick-icon" />
     <span class="pick-label">Pilih Customer <span class="pick-hint">(Opsional)</span></span>
     <AppIcon v-if="isDisabled" name="lock" :size="13" class="pick-lock" />
   </button>
 
-  <!-- Modal -->
-  <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-        <div class="modal-card">
-
-          <!-- Header -->
-          <div class="modal-header">
-            <h3 class="modal-title">
-              <AppIcon v-if="showAddForm" name="user-plus" :size="16" />
-              <AppIcon v-else name="users" :size="16" />
-              {{ showAddForm ? 'Tambah Customer Baru' : 'Pilih Customer' }}
-            </h3>
-            <button class="btn-modal-close" @click="closeModal">
-              <AppIcon name="x" :size="18" />
-            </button>
+  <BaseBottomSheet
+    v-model="showSheet"
+    size="full"
+    sheet-class="customer-picker-sheet"
+    body-class="customer-picker-body"
+    :close-on-overlay="!isCovered"
+    :close-on-escape="!isCovered"
+    :is-inert="isCovered"
+    :z-index="10000"
+    @close="closeSheet"
+  >
+    <template #header>
+      <div class="sheet-heading">
+        <div class="sheet-title-row">
+          <span class="sheet-title-icon"><AppIcon name="users" :size="20" /></span>
+          <div>
+            <h2>Pilih Customer</h2>
+            <p>{{ loadedLabel }}</p>
           </div>
-
-          <!-- Add Form -->
-          <div v-if="showAddForm" class="add-form">
-            <div class="field-group">
-              <label class="field-label">Nama Customer <span class="required">*</span></label>
-              <input
-                v-model="newCustomer.name"
-                type="text"
-                class="input-field"
-                placeholder="Masukkan nama customer"
-                @keyup.enter="handleAddCustomer"
-                autofocus
-              />
-            </div>
-            <div class="field-group">
-              <label class="field-label">No. HP <span class="optional">(Opsional)</span></label>
-              <input
-                :value="newCustomer.phone_number"
-                type="text"
-                inputmode="numeric"
-                class="input-field"
-                placeholder="Contoh: 08123456789"
-                @input="handlePhoneNumberInput"
-                @keyup.enter="handleAddCustomer"
-              />
-            </div>
-            <div class="form-actions">
-              <button class="btn-form-cancel" @click="showAddForm = false" :disabled="isCreating">Batal</button>
-              <button class="btn-form-save" @click="handleAddCustomer" :disabled="!newCustomer.name.trim() || isCreating">
-                <template v-if="isCreating">
-                  <AppIcon name="loader" :size="14" class="spin" /> Menyimpan...
-                </template>
-                <template v-else>
-                  <AppIcon name="check" :size="14" /> Simpan
-                </template>
-              </button>
-            </div>
-          </div>
-
-          <!-- Customer List -->
-          <template v-else>
-            <!-- Search + Add -->
-            <div class="list-toolbar">
-              <div class="search-wrapper">
-                <AppIcon name="search" :size="14" class="search-icon" />
-                <input
-                  ref="searchInputRef"
-                  v-model="searchQuery"
-                  type="text"
-                  class="search-input"
-                  placeholder="Cari nama atau no. HP..."
-                />
-                <button v-if="searchQuery" class="btn-clear-search" @click="searchQuery = ''">
-                  <AppIcon name="x" :size="12" />
-                </button>
-              </div>
-              <button class="btn-add-new" @click="showAddForm = true">
-                <AppIcon name="plus" :size="14" /> Baru
-              </button>
-            </div>
-
-            <!-- Hapus pilihan -->
-            <div v-if="selectedCustomerId" class="selected-bar">
-              <span class="selected-label">
-                <AppIcon name="check-circle" :size="13" />
-                {{ selectedCustomer?.name }}
-              </span>
-              <button class="btn-remove" @click="handleSelectCustomer(null)">
-                <AppIcon name="x" :size="13" /> Hapus
-              </button>
-            </div>
-
-            <!-- List -->
-            <div ref="listBodyRef" class="list-body">
-              <div v-if="!isLoading && customers.length === 0" class="empty-state">
-                <AppIcon name="users" :size="28" class="empty-icon" />
-                <p>Tidak ada customer ditemukan</p>
-              </div>
-              <button
-                v-for="customer in customers"
-                :key="customer.id"
-                class="customer-item"
-                :class="{ active: customer.id === selectedCustomerId }"
-                @click="handleSelectCustomer(customer.id)"
-              >
-                <div class="customer-avatar">{{ customer.name.charAt(0).toUpperCase() }}</div>
-                <div class="customer-info">
-                  <div class="customer-name-row">
-                    <span class="customer-name">{{ customer.name }}</span>
-                    <span v-if="customer.is_member && customer.member_status === 'active'" class="member-badge" :class="`member-badge--${customer.member_type}`">
-                      {{ customer.member_type?.toUpperCase() ?? 'MEMBER' }}
-                    </span>
-                    <span v-else-if="customer.member_type && customer.member_status !== 'active'" class="member-badge member-badge--pending">
-                      {{ customer.member_type?.toUpperCase() }} (pending)
-                    </span>
-                  </div>
-                  <span v-if="customer.phone_number" class="customer-phone">{{ customer.phone_number }}</span>
-                </div>
-                <AppIcon v-if="customer.id === selectedCustomerId" name="check" :size="16" class="check-icon" />
-              </button>
-
-              <!-- Infinite scroll sentinel -->
-              <div ref="sentinelRef" class="load-sentinel">
-                <div v-if="isLoadingMore" class="load-more-spinner">
-                  <AppIcon name="loader" :size="16" class="spin" />
-                </div>
-              </div>
-            </div>
-          </template>
-
         </div>
       </div>
-    </Transition>
-  </Teleport>
+    </template>
+
+    <div class="sheet-content">
+      <div class="sheet-toolbar">
+        <div class="search-wrapper">
+          <AppIcon name="search" :size="18" class="search-icon" />
+          <input
+            ref="searchInputRef"
+            v-model="searchQuery"
+            type="search"
+            class="search-input"
+            placeholder="Cari nama atau nomor HP..."
+          />
+          <button v-if="searchQuery" class="clear-search" title="Hapus pencarian" @click="searchQuery = ''">
+            <AppIcon name="x" :size="16" />
+          </button>
+        </div>
+        <button class="add-customer" @click="handleAdd">
+          <AppIcon name="user-plus" :size="18" />
+          <span>Customer Baru</span>
+        </button>
+      </div>
+
+      <div ref="scrollAreaRef" class="customer-scroll">
+        <div v-if="isLoading && customers.length === 0" class="customer-grid" aria-label="Memuat customer">
+          <div v-for="index in 10" :key="index" class="customer-card skeleton-card">
+            <span class="skeleton skeleton-avatar"></span>
+            <span class="skeleton-copy">
+              <span class="skeleton skeleton-name"></span>
+              <span class="skeleton skeleton-phone"></span>
+            </span>
+          </div>
+        </div>
+
+        <template v-else>
+          <div v-if="customers.length > 0" class="customer-grid">
+            <button
+              class="customer-card no-customer-card"
+              :class="{ selected: selectedCustomerId === null }"
+              @click="handleSelect(null)"
+            >
+              <span class="walk-in-icon"><AppIcon name="user" :size="20" /></span>
+              <span class="customer-copy">
+                <strong>Tanpa customer</strong>
+                <small>Gunakan transaksi walk-in</small>
+              </span>
+              <AppIcon v-if="selectedCustomerId === null" name="check-circle" :size="20" class="selected-check" />
+            </button>
+
+            <article
+              v-for="customer in customers"
+              :key="customer.id"
+              class="customer-card"
+              :class="{ selected: customer.id === selectedCustomerId }"
+            >
+              <button class="customer-select" @click="handleSelect(customer.id)">
+                <span class="customer-avatar">{{ customer.name.charAt(0).toUpperCase() }}</span>
+                <span class="customer-copy">
+                  <span class="customer-name-row">
+                    <strong>{{ customer.name }}</strong>
+                    <span
+                      v-if="customer.member_type"
+                      class="member-badge"
+                      :class="[
+                        `member-badge--${customer.member_type}`,
+                        { 'member-badge--inactive': customer.member_status !== 'active' },
+                      ]"
+                    >{{ customer.member_type.toUpperCase() }}</span>
+                  </span>
+                  <small>{{ customer.phone_number || 'Tidak ada nomor HP' }}</small>
+                  <span v-if="customer.member_type && customer.member_status !== 'active'" class="member-status">
+                    {{ customer.member_status === 'pending' ? 'Pending' : 'Nonaktif' }}
+                  </span>
+                </span>
+                <AppIcon v-if="customer.id === selectedCustomerId" name="check-circle" :size="20" class="selected-check" />
+              </button>
+              <button class="customer-edit" title="Edit customer" @click="handleEdit(customer)">
+                <AppIcon name="edit" :size="18" />
+              </button>
+            </article>
+          </div>
+
+          <div v-else class="empty-state">
+            <span class="empty-icon"><AppIcon name="users" :size="32" /></span>
+            <h3>{{ searchQuery ? 'Customer tidak ditemukan' : 'Belum ada customer' }}</h3>
+            <p v-if="searchQuery">Tidak ada hasil untuk “{{ searchQuery }}”.</p>
+            <p v-else>Tambahkan customer pertama untuk mulai menyimpan data pelanggan.</p>
+            <div class="empty-actions">
+              <button v-if="searchQuery" class="secondary-action" @click="searchQuery = ''">Hapus Pencarian</button>
+              <button class="primary-action" @click="handleAdd"><AppIcon name="plus" :size="17" /> Tambah Customer</button>
+            </div>
+          </div>
+        </template>
+
+        <div ref="sentinelRef" class="load-sentinel">
+          <div v-if="isLoadingMore" class="load-state">
+            <AppIcon name="loader" :size="18" class="spin" /> Memuat customer...
+          </div>
+          <div v-else-if="loadMoreError" class="load-error">
+            <span>{{ loadMoreError }}</span>
+            <button @click="emit('retry')">Coba Lagi</button>
+          </div>
+          <div v-else-if="customers.length > 0 && !hasMore" class="list-end">Semua customer sudah ditampilkan</div>
+        </div>
+      </div>
+    </div>
+  </BaseBottomSheet>
 </template>
 
 <style scoped>
-/* ── State: kosong — pick button ── */
-.pick-button {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem 0.85rem;
-  background: transparent;
-  border: 1.5px dashed rgba(123, 47, 190, 0.25);
-  border-radius: 10px;
-  cursor: pointer;
-  min-height: 40px;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-
-  &:active:not(:disabled) {
-    background: rgba(123, 47, 190, 0.04);
-    border-color: rgba(123, 47, 190, 0.45);
-  }
-
-  @media (hover: hover) {
-    &:hover:not(:disabled) {
-      border-color: rgba(123, 47, 190, 0.4);
-      background: rgba(123, 47, 190, 0.02);
-    }
-  }
-
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-}
-
-.pick-icon { opacity: 0.45; flex-shrink: 0; }
-
-.pick-label {
-  flex: 1;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  text-align: left;
-}
-
-.pick-hint { opacity: 0.65; font-weight: 400; }
-.pick-lock { opacity: 0.4; flex-shrink: 0; }
-
-/* ── State: ada pilihan — chip ── */
+.pick-button,
 .selected-chip {
   width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0;
-  background: rgba(123, 47, 190, 0.06);
-  border: 1.5px solid rgba(123, 47, 190, 0.25);
+  min-height: 42px;
+  border: 1px solid var(--brand-border-primary);
   border-radius: 10px;
-  min-height: 40px;
-  overflow: hidden;
-
-  &.disabled { opacity: 0.7; }
+  background: var(--color-surface-0);
 }
 
-.chip-main {
-  flex: 1;
-  min-width: 0;
+.pick-button {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.45rem 0.6rem;
-  background: none;
-  border: none;
+  gap: 8px;
+  padding: 8px 12px;
+  color: var(--color-text-secondary);
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-
-  &:active:not(:disabled) { background: rgba(123, 47, 190, 0.08); }
-  &:disabled { cursor: not-allowed; }
 }
 
-.chip-avatar {
-  width: 26px;
-  height: 26px;
-  min-width: 26px;
+.pick-button:hover:not(:disabled) { background: var(--brand-primary-pale); }
+.pick-button:disabled { cursor: not-allowed; opacity: 0.5; }
+.pick-icon, .pick-lock { flex-shrink: 0; color: var(--color-primary); }
+.pick-label { flex: 1; text-align: left; font-size: 12px; font-weight: 600; }
+.pick-hint { color: var(--color-text-tertiary); font-weight: 400; }
+
+.selected-chip { display: flex; align-items: stretch; overflow: hidden; background: var(--brand-primary-pale); }
+.selected-chip.disabled { opacity: 0.7; }
+.chip-main { min-width: 0; flex: 1; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 0; background: transparent; cursor: pointer; }
+.chip-avatar, .customer-avatar, .walk-in-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 100%);
-  color: white;
+  background: var(--brand-gradient-primary);
+  color: var(--color-on-primary);
   font-weight: 700;
-  font-size: 0.72rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+}
+.chip-avatar { width: 28px; height: 28px; font-size: 12px; }
+.chip-name { min-width: 0; flex: 1; overflow: hidden; color: var(--color-primary-dark); font-size: 12px; font-weight: 700; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.chip-change { color: var(--color-primary); font-size: 11px; font-weight: 600; }
+.chip-tier-badge, .member-badge { border-radius: 999px; font-size: 10px; font-weight: 700; line-height: 1; }
+.chip-tier-badge { padding: 4px 7px; background: #f0fdf4; color: #15803d; }
+.chip-tier-badge--akamsi { background: #eff6ff; color: #1d4ed8; }
+.chip-tier-badge--vip { background: #fdf4ff; color: #7e22ce; }
+.chip-clear { width: 40px; border: 0; border-left: 1px solid var(--brand-border-primary); background: transparent; color: var(--color-danger); cursor: pointer; }
+.chip-lock { align-self: center; margin: 0 12px; }
+
+.sheet-heading { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.sheet-title-row { display: flex; align-items: center; gap: 12px; }
+.sheet-title-icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: var(--brand-primary-pale); color: var(--color-primary); }
+.sheet-heading h2 { margin: 0; color: var(--color-text-primary); font-family: var(--font-family-body); font-size: 18px; font-weight: 700; }
+.sheet-heading p { margin: 2px 0 0; color: var(--color-text-tertiary); font-size: 12px; }
+
+.sheet-content { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--color-surface-1); }
+.sheet-toolbar { flex: 0 0 auto; display: flex; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--color-border-light); background: var(--color-surface-0); }
+.search-wrapper { min-width: 0; flex: 1; position: relative; display: flex; align-items: center; }
+.search-icon { position: absolute; left: 14px; color: var(--color-text-tertiary); pointer-events: none; }
+.search-input { width: 100%; height: 48px; padding: 0 44px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface-1); color: var(--color-text-primary); font-family: var(--font-family-body); font-size: 14px; }
+.search-input:focus { outline: 2px solid var(--brand-overlay-primary-20); border-color: var(--color-primary); background: var(--color-surface-0); }
+.clear-search { position: absolute; right: 4px; width: 40px; height: 40px; display: grid; place-items: center; border: 0; background: transparent; color: var(--color-text-tertiary); cursor: pointer; }
+.add-customer { height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 18px; border: 0; border-radius: 12px; background: var(--brand-gradient-primary); box-shadow: var(--brand-shadow-primary); color: var(--color-on-primary); font-family: var(--font-family-body); font-size: 13px; font-weight: 700; cursor: pointer; }
+
+.customer-scroll { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px calc(20px + env(safe-area-inset-bottom)); }
+.customer-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.customer-card { min-width: 0; min-height: 72px; display: flex; align-items: stretch; position: relative; overflow: hidden; border: 1px solid var(--color-border-light); border-radius: 12px; background: var(--color-surface-0); box-shadow: var(--shadow-1); transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease; }
+.customer-card:hover { border-color: var(--brand-border-primary); box-shadow: var(--shadow-2); }
+.customer-card.selected { border-color: var(--color-primary); background: var(--brand-primary-pale); box-shadow: 0 0 0 1px var(--brand-overlay-primary-15); }
+.customer-card.selected::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--color-primary); }
+.customer-select, .no-customer-card { min-width: 0; flex: 1; display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 16px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.no-customer-card { width: 100%; font-family: var(--font-family-body); }
+.customer-avatar, .walk-in-icon { width: 42px; height: 42px; font-size: 15px; }
+.walk-in-icon { background: var(--color-surface-2); color: var(--color-text-secondary); }
+.customer-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.customer-copy strong { min-width: 0; overflow: hidden; color: var(--color-text-primary); font-size: 14px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.customer-copy small { overflow: hidden; color: var(--color-text-tertiary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.customer-name-row { min-width: 0; display: flex; align-items: center; gap: 7px; }
+.customer-name-row strong { flex: 0 1 auto; }
+.member-badge { flex: 0 0 auto; padding: 4px 7px; border: 1px solid #bbf7d0; background: #f0fdf4; color: #15803d; }
+.member-badge--akamsi { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+.member-badge--vip { border-color: #e9d5ff; background: #fdf4ff; color: #7e22ce; }
+.member-badge--inactive { filter: grayscale(0.65); opacity: 0.68; }
+.member-status { color: var(--color-warning); font-size: 10px; font-weight: 600; }
+.selected-check { flex: 0 0 auto; color: var(--color-primary); }
+.customer-edit { flex: 0 0 48px; width: 48px; display: grid; place-items: center; border: 0; border-left: 1px solid var(--color-border-light); background: transparent; color: var(--color-primary); cursor: pointer; }
+.customer-edit:hover { background: var(--brand-overlay-primary-10); }
+
+.skeleton-card { padding: 14px 16px; gap: 12px; }
+.skeleton { display: block; border-radius: 8px; background: linear-gradient(90deg, var(--color-surface-2), var(--color-surface-3), var(--color-surface-2)); background-size: 200% 100%; animation: shimmer 1.3s infinite; }
+.skeleton-avatar { width: 42px; height: 42px; border-radius: 50%; }
+.skeleton-copy { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+.skeleton-name { width: 60%; height: 12px; }
+.skeleton-phone { width: 42%; height: 9px; }
+
+.empty-state { min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 16px; text-align: center; }
+.empty-icon { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 20px; background: var(--brand-primary-pale); color: var(--color-primary); }
+.empty-state h3 { margin: 16px 0 6px; color: var(--color-text-primary); font-size: 16px; }
+.empty-state p { max-width: 420px; margin: 0; color: var(--color-text-tertiary); font-size: 13px; }
+.empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 18px; }
+.empty-actions button { min-height: 44px; padding: 0 16px; border-radius: 10px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.secondary-action { border: 1px solid var(--color-border); background: var(--color-surface-0); color: var(--color-text-secondary); }
+.primary-action { display: flex; align-items: center; gap: 7px; border: 0; background: var(--brand-gradient-primary); color: var(--color-on-primary); }
+
+.load-sentinel { min-height: 44px; display: flex; align-items: center; justify-content: center; margin-top: 8px; }
+.load-state, .list-end { display: flex; align-items: center; gap: 8px; color: var(--color-text-tertiary); font-size: 12px; }
+.load-error { display: flex; align-items: center; gap: 10px; color: var(--color-danger); font-size: 12px; }
+.load-error button { min-height: 36px; padding: 0 12px; border: 1px solid currentColor; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }
+.spin { animation: spin 0.8s linear infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+:global(.customer-picker-sheet) { width: 100%; max-width: 100%; border-radius: 22px 22px 0 0; }
+:global(.customer-picker-body) { min-height: 0; padding: 0; overflow: hidden; gap: 0; }
+
+@media (min-width: 768px) {
+  .customer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .no-customer-card { grid-column: 1 / -1; }
+  .sheet-toolbar { padding: 12px 24px; }
+  .customer-scroll { padding: 16px 24px calc(24px + env(safe-area-inset-bottom)); }
 }
 
-.chip-name {
-  font-weight: 700;
-  font-size: 0.8rem;
-  color: var(--color-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-  text-align: left;
+@media (min-width: 1280px) {
+  .customer-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
-.chip-star { opacity: 0.75; flex-shrink: 0; color: #d97706; }
-.chip-tier-badge {
-  font-size: 0.6rem;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 99px;
-  flex-shrink: 0;
-  background: #f0fdf4;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
-}
-.chip-tier-badge--umum   { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
-.chip-tier-badge--akamsi { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
-.chip-tier-badge--vip    { background: #fdf4ff; color: #7e22ce; border-color: #e9d5ff; }
-
-.chip-change {
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  opacity: 0.55;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.chip-clear {
-  width: 36px;
-  height: 100%;
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  border-left: 1px solid rgba(123, 47, 190, 0.15);
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-
-  &:active { background: rgba(239, 68, 68, 0.08); color: #dc2626; }
-}
-
-.chip-lock { opacity: 0.4; padding: 0 0.5rem; flex-shrink: 0; }
-
-/* ── Modal Overlay ── */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 9998;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: env(safe-area-inset-top, 16px) 16px env(safe-area-inset-bottom, 16px) 16px;
-}
-
-.modal-card {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(123, 47, 190, 0.12);
-  width: 100%;
-  max-width: 420px;
-  max-height: min(560px, calc(100dvh - env(safe-area-inset-top, 16px) - env(safe-area-inset-bottom, 16px) - 32px));
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* ── Modal Header ── */
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.1rem 0.85rem;
-  border-bottom: 1px solid rgba(123, 47, 190, 0.1);
-  flex-shrink: 0;
-}
-
-.modal-title {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.btn-modal-close {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-secondary);
-  flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-
-  &:active { background: rgba(0, 0, 0, 0.1); }
-}
-
-/* ── Toolbar (search + add) ── */
-.list-toolbar {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem 0.85rem 0.5rem;
-  flex-shrink: 0;
-}
-
-.search-wrapper {
-  flex: 1;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-icon {
-  position: absolute;
-  left: 0.6rem;
-  opacity: 0.45;
-  pointer-events: none;
-}
-
-.search-input {
-  width: 100%;
-  padding: 0.55rem 2rem 0.55rem 2rem;
-  border: 1.5px solid rgba(123, 47, 190, 0.15);
-  border-radius: 9px;
-  font-size: 0.85rem;
-  font-family: var(--font-family-body);
-  background: rgba(123, 47, 190, 0.02);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-
-  &:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    background: white;
-    box-shadow: 0 0 0 3px rgba(123, 47, 190, 0.1);
-  }
-
-  &::placeholder { color: var(--color-text-hint); }
-}
-
-.btn-clear-search {
-  position: absolute;
-  right: 0.5rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-text-hint);
-  display: flex;
-  align-items: center;
-  padding: 0.2rem;
-  border-radius: 4px;
-  -webkit-tap-highlight-color: transparent;
-
-  &:active { color: var(--color-text-primary); }
-}
-
-.btn-add-new {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.55rem 0.8rem;
-  background: rgba(123, 47, 190, 0.08);
-  color: var(--brand-primary);
-  border: 1.5px solid rgba(123, 47, 190, 0.2);
-  border-radius: 9px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  transition: background-color 0.15s ease;
-
-  &:active { background: rgba(123, 47, 190, 0.15); }
-}
-
-/* ── Selected bar ── */
-.selected-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0 0.85rem 0.35rem;
-  padding: 0.4rem 0.7rem;
-  background: rgba(123, 47, 190, 0.06);
-  border: 1px solid rgba(123, 47, 190, 0.18);
-  border-radius: 8px;
-  flex-shrink: 0;
-}
-
-.selected-label {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--color-primary);
-}
-
-.btn-remove {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  background: rgba(239, 68, 68, 0.06);
-  color: #dc2626;
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 6px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-
-  &:active { background: rgba(239, 68, 68, 0.14); }
-}
-
-/* ── Customer List ── */
-.list-body {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  padding: 0 0.5rem 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 2rem 1rem;
-  color: var(--color-text-secondary);
-  font-size: 0.82rem;
-
-  p { margin: 0; }
-}
-
-.empty-icon { opacity: 0.25; }
-
-.load-sentinel {
-  height: 1px;
-  width: 100%;
-}
-
-.load-more-spinner {
-  display: flex;
-  justify-content: center;
-  padding: 0.5rem 0;
-  color: var(--color-primary);
-  opacity: 0.6;
-}
-
-.customer-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.65rem 0.75rem;
-  background: white;
-  border: 1.5px solid rgba(123, 47, 190, 0.07);
-  border-radius: 10px;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  transition: background-color 0.12s ease, border-color 0.12s ease;
-
-  &:active { background: rgba(123, 47, 190, 0.06); }
-
-  &.active {
-    background: rgba(123, 47, 190, 0.06);
-    border-color: var(--color-primary);
-    border-width: 1.5px;
-  }
-}
-
-.customer-avatar {
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(123, 47, 190, 0.15) 0%, rgba(123, 47, 190, 0.08) 100%);
-  color: var(--color-primary);
-  font-weight: 700;
-  font-size: 0.95rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.customer-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.customer-name-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.customer-name {
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.member-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.1rem 0.45rem;
-  border-radius: 99px;
-  font-size: 0.62rem;
-  font-weight: 700;
-  white-space: nowrap;
-  flex-shrink: 0;
-  background: rgba(234, 179, 8, 0.12);
-  color: #92400e;
-  border: 1px solid rgba(234, 179, 8, 0.3);
-}
-.member-badge--umum   { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
-.member-badge--akamsi { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
-.member-badge--vip    { background: #fdf4ff; color: #7e22ce; border-color: #e9d5ff; }
-.member-badge--pending { background: #f8fafc; color: #94a3b8; border-color: #e2e8f0; }
-
-.customer-phone {
-  font-size: 0.73rem;
-  color: var(--color-text-secondary);
-}
-
-.check-icon {
-  color: var(--color-primary);
-  flex-shrink: 0;
-}
-
-/* ── Add Form ── */
-.add-form {
-  padding: 1rem 1.1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.field-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.field-label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-}
-
-.required { color: #ef4444; }
-.optional { font-weight: 400; color: var(--color-text-hint); }
-
-.input-field {
-  padding: 0.65rem 0.85rem;
-  border: 1.5px solid rgba(123, 47, 190, 0.15);
-  border-radius: 9px;
-  font-size: 0.88rem;
-  font-family: var(--font-family-body);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  background: white;
-
-  &:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(123, 47, 190, 0.1);
-  }
-
-  &::placeholder { color: var(--color-text-hint); font-weight: 400; }
-}
-
-.form-actions {
-  display: flex;
-  gap: 0.6rem;
-  padding-top: 0.25rem;
-}
-
-.btn-form-cancel {
-  flex: 1;
-  padding: 0.65rem;
-  background: rgba(0, 0, 0, 0.04);
-  color: var(--color-text-secondary);
-  border: 1.5px solid rgba(0, 0, 0, 0.08);
-  border-radius: 10px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-
-  &:active { background: rgba(0, 0, 0, 0.08); }
-}
-
-.btn-form-save {
-  flex: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  padding: 0.65rem;
-  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 100%);
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-
-  &:active:not(:disabled) { opacity: 0.88; }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-}
-
-.spin {
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ── Transition (sama dengan modal-content pattern) ── */
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-card {
-  animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes modalSlideIn {
-  from { transform: scale(0.95) translateY(10px); opacity: 0; }
-  to   { transform: scale(1) translateY(0); opacity: 1; }
-}
-
-/* ── Tablet compact ── */
-@media (min-width: 960px) and (max-width: 1279px) {
-  .modal-card { max-width: 380px; }
-  .customer-item { padding: 0.55rem 0.65rem; }
-  .customer-avatar { width: 32px; height: 32px; min-width: 32px; font-size: 0.85rem; }
-  .customer-name { font-size: 0.8rem; }
-  .customer-phone { font-size: 0.68rem; }
+@media (max-width: 480px) {
+  .sheet-toolbar { flex-direction: column; }
+  .add-customer { width: 100%; }
+  .sheet-heading h2 { font-size: 16px; }
+  .sheet-title-icon { width: 36px; height: 36px; }
+  .customer-scroll { padding-inline: 12px; }
 }
 </style>

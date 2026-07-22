@@ -27,6 +27,7 @@ export const useTransactionStore = defineStore('transaction', () => {
 
   // Guard: prevent concurrent recalculations from rapid customer switching
   let recalculateTimer: ReturnType<typeof setTimeout> | null = null
+  let memberUsageRequestId = 0
 
   // Split Bill State
   const openTransactions = ref<Transaction[]>([])
@@ -315,6 +316,7 @@ export const useTransactionStore = defineStore('transaction', () => {
 
 
     
+    const usageRequestId = ++memberUsageRequestId
     const changed = selectedCustomerId.value !== customerId
     const hasItems = items.value.length > 0
     
@@ -337,9 +339,21 @@ export const useTransactionStore = defineStore('transaction', () => {
     if (customerId && is_member && memberStatus === 'active' && memberType) {
       memberDailyUsageLoading.value = true
       memberTierApi.getDailyUsage(customerId)
-        .then(data => { memberDailyUsedToday.value = data.used })
-        .catch(() => { memberDailyUsedToday.value = 0 })
-        .finally(() => { memberDailyUsageLoading.value = false })
+        .then(data => {
+          if (usageRequestId === memberUsageRequestId && selectedCustomerId.value === customerId) {
+            memberDailyUsedToday.value = data.used
+          }
+        })
+        .catch(() => {
+          if (usageRequestId === memberUsageRequestId && selectedCustomerId.value === customerId) {
+            memberDailyUsedToday.value = 0
+          }
+        })
+        .finally(() => {
+          if (usageRequestId === memberUsageRequestId && selectedCustomerId.value === customerId) {
+            memberDailyUsageLoading.value = false
+          }
+        })
     }
 
     if (changed && hasItems) {
@@ -352,6 +366,7 @@ export const useTransactionStore = defineStore('transaction', () => {
   }
 
   const clearTransaction = (): void => {
+    memberUsageRequestId += 1
     items.value = []
     selectedCustomerId.value = null
     selectedCustomerIsMember.value = false

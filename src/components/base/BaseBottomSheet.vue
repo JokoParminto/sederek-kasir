@@ -8,14 +8,24 @@ interface Props {
   title?: string
   size?: Size
   closeOnOverlay?: boolean
+  closeOnEscape?: boolean
   showClose?: boolean
+  sheetClass?: string
+  bodyClass?: string
+  zIndex?: number
+  isInert?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   title: '',
   size: 'auto',
   closeOnOverlay: true,
-  showClose: true
+  closeOnEscape: true,
+  showClose: true,
+  sheetClass: '',
+  bodyClass: '',
+  zIndex: 10000,
+  isInert: false,
 })
 
 const emit = defineEmits<{
@@ -23,29 +33,30 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const classes = computed(() => ['base-sheet', `base-sheet--${props.size}`])
+const classes = computed(() => ['base-sheet', `base-sheet--${props.size}`, props.sheetClass])
 
 const close = () => {
+  if (props.isInert) return
   emit('update:modelValue', false)
   emit('close')
 }
 
 const onOverlayClick = () => {
-  if (props.closeOnOverlay) {
+  if (props.closeOnOverlay && !props.isInert) {
     close()
   }
 }
 
 const onKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && props.modelValue) {
+  if (event.key === 'Escape' && props.modelValue && props.closeOnEscape && !props.isInert) {
     close()
   }
 }
 
 watch(
-  () => props.modelValue,
-  (isOpen) => {
-    if (isOpen) {
+  () => [props.modelValue, props.closeOnEscape, props.isInert] as const,
+  ([isOpen, closeOnEscape, isInert]) => {
+    if (isOpen && closeOnEscape && !isInert) {
       window.addEventListener('keydown', onKeydown)
     } else {
       window.removeEventListener('keydown', onKeydown)
@@ -62,7 +73,14 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <Transition name="sheet-fade">
-      <div v-if="modelValue" class="base-sheet__overlay" @click="onOverlayClick">
+      <div
+        v-if="modelValue"
+        class="base-sheet__overlay"
+        :style="{ zIndex }"
+        :inert="isInert || undefined"
+        :aria-hidden="isInert ? 'true' : undefined"
+        @click="onOverlayClick"
+      >
         <div :class="classes" @click.stop>
           <div class="base-sheet__handle" aria-hidden="true"></div>
           <header v-if="title || $slots.header || showClose" class="base-sheet__header">
@@ -75,7 +93,7 @@ onBeforeUnmount(() => {
               <AppIcon name="x" :size="18" />
             </button>
           </header>
-          <section class="base-sheet__body">
+          <section class="base-sheet__body" :class="bodyClass">
             <slot />
           </section>
           <footer v-if="$slots.footer" class="base-sheet__footer">
@@ -136,6 +154,7 @@ onBeforeUnmount(() => {
 }
 
 .base-sheet--full {
+  height: 95dvh;
   max-height: 95dvh;
   min-height: 300px;
 }
@@ -163,17 +182,30 @@ onBeforeUnmount(() => {
   color: var(--color-text-primary);
 }
 
+.base-sheet__title {
+  min-width: 0;
+  flex: 1;
+}
+
 .base-sheet__close {
-  border: none;
-  background: transparent;
-  font-size: 1.1rem;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-1);
   cursor: pointer;
   color: var(--color-text-secondary);
-  padding: 0.25rem;
+  padding: 0;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
 .base-sheet__close:hover {
-  color: var(--color-text-primary);
+  border-color: var(--brand-border-primary);
+  background: var(--brand-primary-pale);
+  color: var(--color-primary);
 }
 
 .base-sheet__body {
@@ -246,6 +278,11 @@ onBeforeUnmount(() => {
     width: 100%;
     max-height: 85dvh;
     min-height: 150px;
+  }
+
+  .base-sheet--full {
+    height: 95dvh;
+    max-height: 95dvh;
   }
 
   .base-sheet__header,
