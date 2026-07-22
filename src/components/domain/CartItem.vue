@@ -48,10 +48,7 @@ const discountAmount = computed(() => {
 const itemSubtotal = computed(() => totalWithAddOns.value - discountAmount.value)
 
 const memberSavings = computed(() => {
-  if (props.item.is_member_price && props.item.originalPrice && props.item.memberPrice) {
-    return (props.item.originalPrice - props.item.memberPrice) * props.item.quantity
-  }
-  return 0
+  return props.item.memberSaving || 0
 })
 
 const handleQuantityChange = (delta: number) => {
@@ -188,7 +185,9 @@ const handleDeleteAddOn = (addOnId: string) => {
       </div>
       <div v-if="item.is_member_price && memberSavings > 0" class="extra-item member-discount">
         <AppIcon name="star" :size="11" class="extra-icon" />
-        <span class="extra-name">Diskon Member</span>
+        <span class="extra-name">
+          Diskon Member<span v-if="item.memberQuantity && item.memberQuantity < item.quantity"> ({{ item.memberQuantity }} member + {{ item.regularQuantity }} normal)</span>
+        </span>
         <span class="extra-value">hemat {{ formatRupiah(memberSavings) }}</span>
       </div>
       <div v-if="item.discount.value > 0" class="extra-item discount">

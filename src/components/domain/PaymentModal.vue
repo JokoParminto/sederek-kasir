@@ -12,7 +12,7 @@ interface Props {
 }
 
 interface Emits {
-  pay: [method: string, details?: SplitPayment | Record<string, any>, paymentMethodId?: string]
+  pay: [method: string, amountPaid: number, details?: SplitPayment | Record<string, any>, paymentMethodId?: string]
   close: []
 }
 
@@ -126,17 +126,17 @@ const handlePay = () => {
   const qrisName = paymentMethods.value.find(m => m.value === 'qris')?.name || 'QRIS'
   if (selectedMethod.value === 'cash') {
     if (!isCashValid.value) return
-    emit('pay', methodName, {
+    emit('pay', methodName, cashAmount.value, {
       [cashName]: cashAmount.value,
     }, selectedMethodId.value || undefined)
   } else if (selectedMethod.value === 'split') {
     if (!isSplitValid.value) return
-    emit('pay', methodName, {
+    emit('pay', methodName, splitTotal.value, {
       [cashName]: cashAmount.value,
       [qrisName]: qrisAmount.value,
     }, selectedMethodId.value || undefined)
   } else {
-    emit('pay', methodName, undefined, selectedMethodId.value || undefined)
+    emit('pay', methodName, props.total, undefined, selectedMethodId.value || undefined)
   }
 }
 

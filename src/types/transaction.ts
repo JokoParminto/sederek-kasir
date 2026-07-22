@@ -21,6 +21,8 @@ export interface TransactionItem {
   memberPrice?: number
   is_member_price: boolean
   memberSaving?: number
+  memberQuantity?: number
+  regularQuantity?: number
   quantity: number
   discount: Discount
   addOns?: CartItemAddOn[]
@@ -28,6 +30,49 @@ export interface TransactionItem {
   notes?: string
   paymentStatus?: 'paid' | 'unpaid'
   categoryName?: string
+}
+
+export interface TransactionQuoteRequest {
+  customer_id?: string | null
+  discount_global?: number
+  discount_global_type?: 'amount' | 'percentage'
+  items: Array<{
+    client_line_id: string
+    product_id: string
+    quantity: number
+    discount_amount?: number
+    discount_type?: 'amount' | 'percentage'
+    notes?: string
+    addOns?: Array<{ addOnId: string; quantity: number }>
+  }>
+}
+
+export interface TransactionQuoteLine {
+  clientLineId: string | null
+  productId: string
+  productName: string
+  quantity: number
+  originalPrice: number
+  memberPrice?: number
+  memberQuantity: number
+  regularQuantity: number
+  effectivePrice: number
+  memberSaving: number
+  calculatedDiscount: number
+  total: number
+  addOns: CartItemAddOn[]
+}
+
+export interface TransactionQuote {
+  customerId: string | null
+  customerIsMember: boolean
+  memberType: 'umum' | 'akamsi' | 'vip' | null
+  items: TransactionQuoteLine[]
+  subtotal: number
+  itemDiscounts: number
+  globalDiscountAmount: number
+  totalMemberSavings: number
+  total: number
 }
 
 export interface SplitPayment {

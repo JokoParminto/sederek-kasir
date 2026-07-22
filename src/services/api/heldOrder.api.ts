@@ -38,6 +38,7 @@ export const heldOrderApi = {
        member_price?: number | null  // Member price if available (optional)
        is_member_price: boolean  // TRUE if member price is being used
        member_saving?: number  // Amount saved from member pricing (optional)
+       member_priced_quantity?: number
        addOns?: Array<{
          addOnId: string
          addOnName?: string
@@ -107,7 +108,9 @@ export const heldOrderApi = {
            originalPrice: parseFloat(item.original_price) || parseFloat(item.product_price) || 0,
            memberPrice: item.member_price ? (parseFloat(item.member_price) || undefined) : undefined,
            is_member_price: item.is_member_price || false,
-           memberSaving: parseFloat(item.member_saving) || 0,
+            memberSaving: parseFloat(item.member_savings ?? item.member_saving) || 0,
+            memberQuantity: Number(item.member_priced_quantity) || 0,
+            regularQuantity: Math.max(0, (parseInt(item.quantity) || 1) - (Number(item.member_priced_quantity) || 0)),
            quantity: parseInt(item.quantity) || 1,
            notes: item.notes || '',
            discount: {
@@ -197,7 +200,9 @@ export const heldOrderApi = {
           originalPrice: parseFloat(item.original_price) || parseFloat(item.product_price) || 0,
           memberPrice: item.member_price ? (parseFloat(item.member_price) || undefined) : undefined,
           is_member_price: item.is_member_price || false,
-          memberSaving: parseFloat(item.member_saving) || 0,
+          memberSaving: parseFloat(item.member_savings ?? item.member_saving) || 0,
+          memberQuantity: Number(item.member_priced_quantity) || 0,
+          regularQuantity: Math.max(0, (parseInt(item.quantity) || 1) - (Number(item.member_priced_quantity) || 0)),
           quantity: parseInt(item.quantity) || 1,
           notes: item.notes || '',
           paymentStatus: item.payment_status,
@@ -265,6 +270,7 @@ export const heldOrderApi = {
          member_price?: number | null  // Member price if available (optional)
          is_member_price: boolean  // TRUE if member price is being used
          member_saving?: number  // Amount saved from member pricing (optional)
+         member_priced_quantity?: number
          addOns?: Array<{
            addOnId: string
            quantity: number

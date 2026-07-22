@@ -10,7 +10,7 @@ import { productApi } from '@/services/api/product.api'
 import { customerApi } from '@/services/api/customer.api'
 import { transactionApi } from '@/services/api/transaction.api'
 import { heldOrderApi } from '@/services/api/heldOrder.api'
-import type { Product, Discount, Customer, PaymentMethod, SplitPayment, Transaction } from '@/types'
+import type { Product, Discount, Customer, PaymentMethod, SplitPayment, Transaction, TransactionQuote } from '@/types'
 import { printerService } from '@/services/printer.service'
 import { printLayoutService } from '@/services/printerlayout.service'
 import type { CustomerLayoutConfig, BaristaLayoutConfig, KitchenLayoutConfig } from '@/services/printerlayout.service'
@@ -455,10 +455,7 @@ const printCustomerReceipt = async (trx: Transaction) => {
       const rawName = cfg.item.item_name_format === 'short'
         ? item.productName.slice(0, 16)
         : item.productName
-      // Kalau member price: tampilkan harga asli di baris nama, subtotal = harga member × qty
-      const displaySubtotal = item.is_member_price
-        ? (item.memberPrice ?? item.price) * item.quantity
-        : item.subtotal
+      const displaySubtotal = item.subtotal
       chunks.push(L(threeCol(
         cfg.item.show_item_name ? clean(rawName) : '',
         cfg.item.show_item_quantity ? String(item.quantity) : '',
@@ -518,8 +515,64 @@ const printCustomerReceipt = async (trx: Transaction) => {
   }
 }
 
+const refreshAuthoritativeQuote = async (): Promise<TransactionQuote> => {
+  const quote = await transactionApi.quote({
+    customer_id: transactionStore.selectedCustomerId,
+    discount_global: transactionStore.globalDiscount.value,
+    discount_global_type: transactionStore.globalDiscount.type,
+    items: transactionStore.items.map(item => ({
+      client_line_id: item.id,
+      product_id: item.productId,
+      quantity: item.quantity,
+      discount_amount: item.discount.value,
+      discount_type: item.discount.type,
+      notes: item.notes,
+      addOns: item.addOns?.map(addOn => ({
+        addOnId: addOn.addOnId,
+        quantity: addOn.quantity,
+      })) || [],
+    })),
+  })
+
+  const quotedLines = new Map(quote.items.map(line => [line.clientLineId, line]))
+  for (const item of transactionStore.items) {
+    const line = quotedLines.get(item.id)
+    if (!line) throw new Error('Respons quote tidak lengkap')
+    item.productName = line.productName
+    item.originalPrice = line.originalPrice
+    item.memberPrice = line.memberPrice
+    item.memberQuantity = line.memberQuantity
+    item.regularQuantity = line.regularQuantity
+    item.price = line.effectivePrice
+    item.is_member_price = line.memberQuantity > 0
+    item.memberSaving = line.memberSaving
+    item.addOns = line.addOns
+    item.subtotal = line.total
+  }
+
+  return quote
+}
+
+const handleOpenPayment = async () => {
+  if (transactionStore.isEmpty) return
+  isLoading.value = true
+  try {
+    await refreshAuthoritativeQuote()
+    showPaymentModal.value = true
+  } catch (error: any) {
+    showError(error?.response?.data?.error?.message || 'Gagal memvalidasi harga customer')
+  } finally {
+    isLoading.value = false
+  }
+}
+
 // Handle payment - ONE STEP checkout
-const handlePay = async (method: string, details?: SplitPayment | Record<string, any>, paymentMethodId?: string) => {
+const handlePay = async (
+  method: string,
+  amountPaid: number,
+  details?: SplitPayment | Record<string, any>,
+  paymentMethodId?: string,
+) => {
   if (transactionStore.isEmpty) {
     showError('Tidak ada item untuk dibayar')
     return
@@ -533,10 +586,12 @@ const handlePay = async (method: string, details?: SplitPayment | Record<string,
   }, 30000)
 
   try {
-    // Calculate amount paid based on payment method
-    let amountPaid = transactionStore.total
-    if (details?.cash !== undefined) {
-      amountPaid = details.cash
+    const previousTotal = transactionStore.total
+    const freshQuote = await refreshAuthoritativeQuote()
+    if (Math.abs(freshQuote.total - previousTotal) > 0.01) {
+      showPaymentModal.value = false
+      showError(`Harga customer berubah. Total terbaru: Rp${freshQuote.total.toLocaleString('id-ID')}`)
+      return
     }
 
 
@@ -727,8 +782,7 @@ const handleHoldOrder = async () => {
   }, 15000)
 
   try {
-    // Ensure member prices are applied before reading totals (guards against 50ms recalculate timer)
-    transactionStore.recalculateAllPrices()
+    await refreshAuthoritativeQuote()
 
     // Prepare items data with member pricing info
       const itemsData = transactionStore.items.map(item => ({
@@ -745,6 +799,7 @@ const handleHoldOrder = async () => {
         member_price: item.memberPrice || null,
         is_member_price: item.is_member_price || false,
         member_saving: item.memberSaving || 0,
+        member_priced_quantity: item.memberQuantity || 0,
         addOns: item.addOns?.map(addOn => ({
           addOnId: addOn.addOnId,
           addOnName: addOn.addOnName || '',
@@ -1029,6 +1084,7 @@ const autoSaveRemainingHeldOrder = async () => {
         member_price: item.memberPrice || null,
         is_member_price: item.is_member_price || false,
         member_saving: item.memberSaving || 0,
+        member_priced_quantity: item.memberQuantity || 0,
         addOns: item.addOns?.map(a => ({ addOnId: a.addOnId, addOnName: a.addOnName || '', quantity: a.quantity, price: a.price, subtotal: a.subtotal })) || [],
       }))
       const updated = await heldOrderApi.updateHeldOrder(loadedFromHeldOrderId.value, {
@@ -1057,11 +1113,26 @@ const handlePartialCartCheckout = async (
   const paidCartItems = transactionStore.items.filter(item => paidItemIds.has(item.id))
   if (paidCartItems.length === 0) return
 
+  const partialQuote = await transactionApi.quote({
+    customer_id: transactionStore.selectedCustomerId,
+    discount_global: 0,
+    discount_global_type: 'amount',
+    items: paidCartItems.map(item => ({
+      client_line_id: item.id,
+      product_id: item.productId,
+      quantity: item.quantity,
+      discount_amount: item.discount.value,
+      discount_type: item.discount.type,
+      notes: item.notes,
+      addOns: item.addOns?.map(addOn => ({ addOnId: addOn.addOnId, quantity: addOn.quantity })) || [],
+    })),
+  })
+
   const checkoutData = {
     customer_id: transactionStore.selectedCustomerId,
     payment_method: paymentMethod,
     payment_method_id: paymentMethodId ?? undefined,
-    amount_paid: paidItems.reduce((sum, i) => sum + i.item_subtotal, 0),
+    amount_paid: partialQuote.total,
     discount_global: 0,
     discount_global_type: 'amount' as const,
     items: paidCartItems.map(item => ({
@@ -1348,8 +1419,13 @@ const handleOpenCloseModal = () => {
 
 // Handle Open Shift Modal
 const handleOpenShift = async () => {
-  if (modalAwal.value === null || modalAwal.value <= 0) {
-    shiftModalError.value = 'Modal awal harus lebih dari 0'
+  if (modalAwal.value === null) {
+    shiftModalError.value = 'Modal awal harus diisi'
+    return
+  }
+
+  if (modalAwal.value < 0) {
+    shiftModalError.value = 'Modal awal tidak boleh negatif'
     return
   }
 
@@ -1378,7 +1454,7 @@ const handleCloseShiftModal = () => {
 }
 
 const formatModalAwalDisplay = (value: number | null) => {
-  if (!value || value <= 0) return ''
+  if (value === null) return ''
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
@@ -1451,7 +1527,7 @@ const handleModalAwalInput = (event: Event) => {
         @apply-global-discount="handleApplyGlobalDiscount"
         @select-customer="handleSelectCustomer"
         @add-new-customer="handleAddNewCustomer"
-        @checkout="showPaymentModal = true"
+        @checkout="handleOpenPayment"
         @hold-order="handleHoldOrder"
         @open-split-bill="handleOpenSplitBill"
         @load-held-order="handleLoadHeldOrder"
@@ -1546,7 +1622,7 @@ const handleModalAwalInput = (event: Event) => {
                   :value="formatModalAwalDisplay(modalAwal)"
                   type="text"
                   class="input"
-                  placeholder="Contoh: Rp 500.000"
+                  placeholder="Contoh: Rp0 atau Rp500.000"
                   :disabled="shiftModalLoading"
                   @input="handleModalAwalInput"
                   @keydown.enter="handleOpenShift"

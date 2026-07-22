@@ -1,5 +1,13 @@
 import apiClient from './client'
-import type { Transaction, TransactionItem, Discount, PaymentMethod, SplitPayment } from '@/types'
+import type {
+  Transaction,
+  TransactionItem,
+  Discount,
+  PaymentMethod,
+  SplitPayment,
+  TransactionQuote,
+  TransactionQuoteRequest,
+} from '@/types'
 import { offlineQueue } from '@/services/offlineQueue'
 import { parseWIB } from '@/utils/formatters'
 
@@ -30,6 +38,8 @@ const normalizeTransaction = (data: any): Transaction => {
       memberPrice: item.member_price ? parseFloat(item.member_price) : undefined,
       is_member_price: Boolean(item.is_member_price ?? item.isMemberPrice ?? false),
       memberSaving: item.member_savings ? parseFloat(item.member_savings) : undefined,
+      memberQuantity: Number(item.member_priced_quantity) || 0,
+      regularQuantity: Math.max(0, (parseInt(item.quantity) || 1) - (Number(item.member_priced_quantity) || 0)),
       paymentStatus: item.payment_status || item.paymentStatus,
       quantity: parseInt(item.quantity) || 1,
       discount: {
@@ -73,6 +83,42 @@ const normalizeTransaction = (data: any): Transaction => {
 }
 
 export const transactionApi = {
+  async quote(data: TransactionQuoteRequest): Promise<TransactionQuote> {
+    const response = await apiClient.post<{ data: any }>('/transactions/quote', data)
+    const quote = response.data.data
+    return {
+      customerId: quote.customer_id ?? null,
+      customerIsMember: Boolean(quote.customer_is_member),
+      memberType: quote.member_type ?? null,
+      items: (quote.items ?? []).map((item: any) => ({
+        clientLineId: item.client_line_id ?? null,
+        productId: item.product_id,
+        productName: item.product_name,
+        quantity: Number(item.quantity) || 1,
+        originalPrice: Number(item.original_unit_price) || 0,
+        memberPrice: item.member_unit_price === null ? undefined : Number(item.member_unit_price),
+        memberQuantity: Number(item.member_priced_quantity) || 0,
+        regularQuantity: Number(item.regular_quantity) || 0,
+        effectivePrice: Number(item.effective_unit_price) || 0,
+        memberSaving: Number(item.member_savings) || 0,
+        calculatedDiscount: Number(item.calculated_discount) || 0,
+        total: Number(item.total) || 0,
+        addOns: (item.addOns ?? []).map((addOn: any) => ({
+          addOnId: addOn.addOnId,
+          addOnName: addOn.addOnName,
+          quantity: Number(addOn.quantity) || 1,
+          price: Number(addOn.price) || 0,
+          subtotal: Number(addOn.subtotal) || 0,
+        })),
+      })),
+      subtotal: Number(quote.gross_subtotal) || 0,
+      itemDiscounts: Number(quote.discount_items) || 0,
+      globalDiscountAmount: Number(quote.discount_global_amount) || 0,
+      totalMemberSavings: Number(quote.total_member_savings) || 0,
+      total: Number(quote.total) || 0,
+    }
+  },
+
   // Create draft transaction
   async createDraftTransaction(data?: {
     customerId?: string | null
