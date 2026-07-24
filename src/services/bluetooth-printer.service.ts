@@ -106,6 +106,8 @@ export const escpos = {
   lineFeed:    (n = 1) => new Uint8Array([ESC, 0x64, n]),
   cut:         () => new Uint8Array([GS, 0x56, 0x41, 0x03]),
   bold:        (on: boolean) => new Uint8Array([ESC, 0x45, on ? 1 : 0]),
+  /** ESC 4 / ESC 5 — enable/disable italic; unsupported printers safely ignore it. */
+  italic:      (on: boolean) => new Uint8Array([ESC, on ? 0x34 : 0x35]),
   align:       (a: 'left' | 'center' | 'right') =>
     new Uint8Array([ESC, 0x61, a === 'left' ? 0 : a === 'center' ? 1 : 2]),
   /** ESC M n — select font: 0=Font A (12×24, default), 1=Font B (9×17, smaller) */

@@ -10,7 +10,7 @@ import { productApi } from '@/services/api/product.api'
 import { customerApi } from '@/services/api/customer.api'
 import { transactionApi } from '@/services/api/transaction.api'
 import { heldOrderApi } from '@/services/api/heldOrder.api'
-import type { Product, Discount, Customer, PaymentMethod, SplitPayment, Transaction, TransactionQuote } from '@/types'
+import type { Product, Discount, Customer, PaymentMethod, SplitPayment, Transaction, TransactionItem, TransactionQuote } from '@/types'
 import { printerService } from '@/services/printer.service'
 import { printLayoutService } from '@/services/printerlayout.service'
 import type { CustomerLayoutConfig, BaristaLayoutConfig, KitchenLayoutConfig } from '@/services/printerlayout.service'
@@ -81,6 +81,104 @@ const shiftModalLoading = ref(false)
 const shiftModalError = ref('')
 const shiftControlPanelRef = ref<InstanceType<typeof ShiftControlPanel> | null>(null)
 
+interface CashierCartDraft {
+  version: 1
+  items: TransactionItem[]
+  selectedCustomerId: string | null
+  selectedCustomerIsMember: boolean
+  selectedCustomerTier: 'umum' | 'akamsi' | 'vip' | null
+  selectedCustomerMemberStatus: 'active' | 'pending' | 'inactive'
+  memberDailyUsedToday: number
+  memberDailyLimit: number | null
+  globalDiscount: Discount
+  paymentMethod: PaymentMethod
+  selectedCustomerDetails: Customer | null
+  loadedFromHeldOrderId: string | null
+  loadedFromHeldOrderVersion: string | null
+  loadedFromHeldOrderHasCustomer: boolean
+}
+
+const cartDraftKey = `pos_cashier_cart_draft:${authStore.user?.id ?? 'anonymous'}`
+
+const restoreCartDraft = () => {
+  try {
+    const rawDraft = localStorage.getItem(cartDraftKey)
+    if (!rawDraft) return
+
+    const draft = JSON.parse(rawDraft) as CashierCartDraft
+    if (draft.version !== 1 || !Array.isArray(draft.items) || draft.items.length === 0) {
+      localStorage.removeItem(cartDraftKey)
+      return
+    }
+
+    transactionStore.items = draft.items
+    transactionStore.selectedCustomerId = draft.selectedCustomerId ?? null
+    transactionStore.selectedCustomerIsMember = draft.selectedCustomerIsMember ?? false
+    transactionStore.selectedCustomerTier = draft.selectedCustomerTier ?? null
+    transactionStore.selectedCustomerMemberStatus = draft.selectedCustomerMemberStatus ?? 'inactive'
+    transactionStore.memberDailyUsedToday = draft.memberDailyUsedToday ?? 0
+    transactionStore.memberDailyLimit = draft.memberDailyLimit ?? null
+    transactionStore.globalDiscount = draft.globalDiscount ?? { type: 'percentage', value: 0 }
+    transactionStore.paymentMethod = draft.paymentMethod ?? 'cash'
+    selectedCustomerDetails.value = draft.selectedCustomerDetails ?? null
+    loadedFromHeldOrderId.value = draft.loadedFromHeldOrderId ?? null
+    loadedFromHeldOrderVersion.value = draft.loadedFromHeldOrderVersion ?? null
+    loadedFromHeldOrderHasCustomer.value = draft.loadedFromHeldOrderHasCustomer ?? false
+  } catch {
+    localStorage.removeItem(cartDraftKey)
+  }
+}
+
+const saveCartDraft = () => {
+  if (transactionStore.items.length === 0) {
+    localStorage.removeItem(cartDraftKey)
+    return
+  }
+
+  const draft: CashierCartDraft = {
+    version: 1,
+    items: transactionStore.items,
+    selectedCustomerId: transactionStore.selectedCustomerId,
+    selectedCustomerIsMember: transactionStore.selectedCustomerIsMember,
+    selectedCustomerTier: transactionStore.selectedCustomerTier,
+    selectedCustomerMemberStatus: transactionStore.selectedCustomerMemberStatus,
+    memberDailyUsedToday: transactionStore.memberDailyUsedToday,
+    memberDailyLimit: transactionStore.memberDailyLimit,
+    globalDiscount: transactionStore.globalDiscount,
+    paymentMethod: transactionStore.paymentMethod,
+    selectedCustomerDetails: selectedCustomerDetails.value,
+    loadedFromHeldOrderId: loadedFromHeldOrderId.value,
+    loadedFromHeldOrderVersion: loadedFromHeldOrderVersion.value,
+    loadedFromHeldOrderHasCustomer: loadedFromHeldOrderHasCustomer.value,
+  }
+
+  try {
+    localStorage.setItem(cartDraftKey, JSON.stringify(draft))
+  } catch {}
+}
+
+restoreCartDraft()
+
+watch(
+  () => ({
+    items: transactionStore.items,
+    selectedCustomerId: transactionStore.selectedCustomerId,
+    selectedCustomerIsMember: transactionStore.selectedCustomerIsMember,
+    selectedCustomerTier: transactionStore.selectedCustomerTier,
+    selectedCustomerMemberStatus: transactionStore.selectedCustomerMemberStatus,
+    memberDailyUsedToday: transactionStore.memberDailyUsedToday,
+    memberDailyLimit: transactionStore.memberDailyLimit,
+    globalDiscount: transactionStore.globalDiscount,
+    paymentMethod: transactionStore.paymentMethod,
+    selectedCustomerDetails: selectedCustomerDetails.value,
+    loadedFromHeldOrderId: loadedFromHeldOrderId.value,
+    loadedFromHeldOrderVersion: loadedFromHeldOrderVersion.value,
+    loadedFromHeldOrderHasCustomer: loadedFromHeldOrderHasCustomer.value,
+  }),
+  saveCartDraft,
+  { deep: true, flush: 'sync' }
+)
+
 // Computed: Get selected customer and check if member
 const selectedCustomer = computed(() =>
   customers.value.find(c => c.id === transactionStore.selectedCustomerId)
@@ -97,10 +195,6 @@ const { pullRefreshOffset, isRefreshing, handleTouchStart, handleTouchMove, hand
   cooldown: 3000, // Prevent refresh more than once per 3 seconds
   onRefresh: async () => {
     try {
-
-      // Clear cart for fresh start
-      transactionStore.clearTransaction()
-
       // Refresh shift data and income
       await shiftStore.fetchCurrentShift()
       if (shiftControlPanelRef.value) {
@@ -142,8 +236,6 @@ function writeCache(key: string, data: unknown): void {
 }
 
 onMounted(async () => {
-  transactionStore.clearTransaction()
-
   // ── Fase 1: Muat dari cache → UI langsung tampil ──
   const cachedProducts   = readCache<Product[]>(CACHE_PRODUCTS)
   const cachedCategories = readCache<any[]>(CACHE_CATEGORIES)
@@ -214,6 +306,7 @@ rulesRefreshInterval = setInterval(() => {
 
 onUnmounted(() => {
   if (rulesRefreshInterval) clearInterval(rulesRefreshInterval)
+  saveCartDraft()
 })
 
 const handleSelectProduct = async (product: Product) => {

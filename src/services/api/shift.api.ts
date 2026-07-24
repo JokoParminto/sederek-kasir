@@ -85,8 +85,8 @@ export const shiftApi = {
         actual_cash: actualCash,
       }
 
-      // Add Shopee Food data if provided
-      if (shopeeFoodData && shopeeFoodData.shopee_food_amount > 0) {
+      // Always persist ShopeeFood reconciliation, including a zero-sales shift.
+      if (shopeeFoodData) {
         payload.shopee_food_amount = shopeeFoodData.shopee_food_amount
         payload.shopee_food_discount_percent = shopeeFoodData.shopee_food_discount_percent
         payload.shopee_food_discount_nominal = shopeeFoodData.shopee_food_discount_nominal

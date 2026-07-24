@@ -3,15 +3,15 @@
     <Transition name="modal">
       <div v-if="isOpen" class="modal-overlay">
         <div class="modal-content">
-          <!-- Header -->
           <div class="modal-header">
-            <h2>Tutup Shift</h2>
-            <button class="btn-close" @click="$emit('close')"><AppIcon name="x" :size="16" /></button>
+            <div>
+              <h2>Tutup Shift</h2>
+              <p>{{ authStore.userName || 'Kasir' }}</p>
+            </div>
+            <button class="btn-close" title="Tutup" @click="$emit('close')"><AppIcon name="x" :size="18" /></button>
           </div>
 
-          <!-- Body -->
           <div class="modal-body">
-            <!-- Shift Summary -->
             <div class="summary-section">
               <div class="section-title">Ringkasan Shift</div>
               <div v-if="isLoadingSummary" class="summary-loading">Memuat ringkasan...</div>
@@ -21,141 +21,106 @@
                   <span class="label">Modal Awal</span>
                   <span class="value">{{ formatCurrency(modalAwal) }}</span>
                 </div>
-                <div class="summary-divider"></div>
+
+                <div class="group-title">Penjualan</div>
                 <div class="summary-row">
-                  <span class="label">Total Penjualan</span>
-                  <span class="value">{{ formatCurrency(totalPenjualan) }}</span>
-                </div>
-                <div class="summary-sub">
-                  <span class="label">Total Penjualan cash</span>
+                  <span class="label">Penjualan Tunai</span>
                   <span class="value">{{ formatCurrency(totalPenjualanCash) }}</span>
                 </div>
-                <div class="summary-sub">
-                  <span class="label">Total Penjualan QRIS</span>
+                <div class="summary-row">
+                  <span class="label">Penjualan QRIS</span>
                   <span class="value">{{ formatCurrency(totalPenjualanQris) }}</span>
                 </div>
-                <div class="summary-divider"></div>
+
+                <label class="money-field">
+                  <span>Total Penjualan ShopeeFood</span>
+                  <input
+                    :value="formatMoneyInput(shopeeFoodAmount)"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="Rp0"
+                    @input="handleShopeeFoodInput"
+                  />
+                </label>
+                <div class="summary-row detail-row">
+                  <span class="label">Potongan ShopeeFood 20%</span>
+                  <span class="value negative">-{{ formatCurrency(shopeeFoodDiscountNominal) }}</span>
+                </div>
+                <div class="summary-row detail-row">
+                  <span class="label">ShopeeFood Diterima</span>
+                  <span class="value">{{ formatCurrency(netShopeeFoodIncome) }}</span>
+                </div>
+                <p class="calculation-hint">Tidak masuk dalam uang tunai</p>
+
+                <div class="group-title">Pengeluaran</div>
                 <div class="summary-row">
                   <span class="label">Total Belanja</span>
                   <span class="value negative">-{{ formatCurrency(totalBelanja) }}</span>
                 </div>
+
                 <div class="summary-divider"></div>
-                <div class="summary-row total">
-                  <span class="label">Pendapatan Bersih</span>
-                  <span class="value">{{ formatCurrency(penjualanPos) }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Shopee Food Sales Section -->
-            <div class="shopee-food-section">
-              <div class="section-title">Penjualan Shopee Food</div>
-              <div v-if="isLoadingSummary" class="summary-loading">Memuat ringkasan...</div>
-
-              <div class="form-group">
-                <label class="label">Total Penjualan (Rp)</label>
-                <input
-                  :value="shopeeFoodAmount > 0 ? formatCurrency(shopeeFoodAmount).replace('Rp ', '') : ''"
-                  type="text"
-                  class="input"
-                  placeholder="Rp 0"
-                  @input="e => {
-                    const rawValue = (e.target as HTMLInputElement).value.replace(/\D/g, '')
-                    shopeeFoodAmount = rawValue ? parseInt(rawValue, 10) : 0
-                  }"
-                />
-              </div>
-              <div class="form-group inline">
-                <label class="label">Diskon/Potongan (%)</label>
-                <span class="discount-static">{{ shopeeFoodDiscount }}%</span>
-              </div>
-
-              <div class="summary-card compact">
-                <div class="summary-row total">
-                  <span class="label">INCOME BERSIH</span>
-                  <span class="value">{{ formatCurrency(netShopeeFoodIncome) }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Actual Cash Input -->
-            <div class="actual-section">
-              <div class="section-title">Input Kas Nyata</div>
-              <div v-if="isLoadingSummary" class="summary-loading">Memuat ringkasan...</div>
-
-              <div class="form-group">
-                <label class="label">Kas Nyata (Rp)</label>
-                <input
-                  :value="formatActualCashDisplay(actualCash)"
-                  type="text"
-                  class="input"
-                  placeholder="Rp 0"
-                  @input="handleActualCashInput"
-                />
-              </div>
-
-              <div class="summary-card">
-                <div class="summary-row">
-                  <span class="label">Kas Seharusnya</span>
-                  <span class="value">{{ formatCurrency(kasSeharusnya) }}</span>
-                </div>
-                <div class="summary-row">
-                  <span class="label">Kas Nyata</span>
-                  <span class="value">{{ formatCurrency(actualCash) }}</span>
-                </div>
-                <div class="summary-row">
-                  <span class="label">Selisih</span>
-                  <span class="value" :class="{ 'positive': selisih > 0, 'negative': selisih < 0 }">
-                    {{ selisih >= 0 ? '+' : '' }}{{ formatCurrency(selisih) }}
-                  </span>
-                </div>
-              </div>
-
-              <div class="summary-card">
-                <div class="summary-row">
-                  <span class="label">Kas Total</span>
-                  <span class="value">{{ formatCurrency(kasTotal) }}</span>
-                </div>
-                <div class="summary-row">
-                  <span class="label">Modal</span>
-                  <span class="value negative">-{{ formatCurrency(modalAwal) }}</span>
-                </div>
-                <div v-if="netShopeeFoodIncome > 0" class="summary-row">
-                  <span class="label">Penjualan Shopee Food</span>
-                  <span class="value">{{ formatCurrency(netShopeeFoodIncome) }}</span>
-                </div>
-                <div class="summary-row total">
-                  <span class="label">Pemasukan Bersih</span>
+                <div class="summary-row grand-total">
+                  <span class="label">Total Pendapatan Bersih</span>
                   <span class="value">{{ formatCurrency(pemasukanBersih) }}</span>
                 </div>
+                <p class="calculation-hint">Tunai + QRIS + ShopeeFood diterima - belanja</p>
               </div>
             </div>
 
-            <!-- Error Message -->
-            <div v-if="errorMessage" class="error-message">
-              {{ errorMessage }}
+            <div class="actual-section">
+              <div class="section-title">Periksa Uang Shift</div>
+              <div class="summary-card">
+                <div class="group-title first">Kas Tunai</div>
+                <div class="summary-row">
+                  <span class="label">Seharusnya Ada</span>
+                  <span class="value">{{ formatCurrency(kasSeharusnya) }}</span>
+                </div>
+                <p class="calculation-hint">Modal awal + penjualan tunai - belanja</p>
+
+                <label class="money-field">
+                  <span>Hasil Hitung Kasir</span>
+                  <input
+                    :value="formatActualCashDisplay(actualCash)"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="Rp0"
+                    @input="handleActualCashInput"
+                  />
+                </label>
+
+                <div v-if="actualCashEntered" class="cash-status" :class="`cash-status--${cashStatus.type}`">
+                  <div class="summary-row">
+                    <span class="label">{{ cashStatus.label }}</span>
+                    <span class="value">{{ formatCurrency(cashStatus.amount) }}</span>
+                  </div>
+                  <p class="calculation-hint">{{ cashStatus.helper }}</p>
+                </div>
+
+                <div class="group-title">Kas Non-Tunai</div>
+                <div class="summary-row">
+                  <span class="label">Pembayaran QRIS</span>
+                  <span class="value">{{ formatCurrency(totalPenjualanQris) }}</span>
+                </div>
+                <div class="summary-row">
+                  <span class="label">ShopeeFood Diterima</span>
+                  <span class="value">{{ formatCurrency(netShopeeFoodIncome) }}</span>
+                </div>
+                <div class="summary-divider"></div>
+                <div class="summary-row subtotal-row">
+                  <span class="label">Total Non-Tunai</span>
+                  <span class="value">{{ formatCurrency(totalNonTunai) }}</span>
+                </div>
+                <p class="calculation-hint">QRIS + ShopeeFood diterima</p>
+              </div>
             </div>
 
-            <!-- Success Message -->
-            <div v-if="successMessage" class="success-message">
-              {{ successMessage }}
-            </div>
+            <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
+            <div v-if="successMessage" class="success-message">{{ successMessage }}</div>
           </div>
 
-          <!-- Footer -->
           <div class="modal-footer">
-            <button
-              class="btn-cancel"
-              @click="$emit('close')"
-              :disabled="isLoading"
-            >
-              Batal
-            </button>
-            <button
-              class="btn-submit"
-              @click="handleCloseShift"
-              :disabled="isLoading || actualCash <= 0"
-            >
+            <button class="btn-cancel" :disabled="isLoading" @click="$emit('close')">Batal</button>
+            <button class="btn-submit" :disabled="isLoading || isLoadingSummary || summaryLoadFailed || !actualCashEntered || actualCash < 0" @click="handleCloseShift">
               {{ isLoading ? 'Menutup shift...' : 'Tutup Shift' }}
             </button>
           </div>
@@ -167,14 +132,11 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { useShiftStore } from '@/stores/shift'
 import { useAuthStore } from '@/stores/auth'
 import { formatCurrency } from '@/utils/formatters'
 import { shiftApi } from '@/services/api/shift.api'
-import { printerService } from '@/services/printer.service'
-import { printLayoutService } from '@/services/printerlayout.service'
-import type { CustomerLayoutConfig } from '@/services/printerlayout.service'
+import { printCloseShiftReceipt } from '@/services/close-shift-receipt.service'
 
 interface Props {
   isOpen: boolean
@@ -188,21 +150,23 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const router = useRouter()
 const shiftStore = useShiftStore()
 const authStore = useAuthStore()
 
 const actualCash = ref(0)
+const actualCashEntered = ref(false)
 const shopeeFoodAmount = ref(0)
 const shopeeFoodDiscount = ref(20)
 const shiftSummary = ref<any | null>(null)
 const isLoadingSummary = ref(false)
+const summaryLoadFailed = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
 const formatActualCashDisplay = (value: number | null) => {
-  if (!value || value <= 0) return ''
+  if (value === 0) return actualCashEntered.value ? 'Rp0' : ''
+  if (value === null || value < 0) return ''
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
@@ -214,7 +178,24 @@ const formatActualCashDisplay = (value: number | null) => {
 const handleActualCashInput = (event: Event) => {
   const input = event.target as HTMLInputElement
   const rawValue = input.value.replace(/\D/g, '')
+  actualCashEntered.value = rawValue !== ''
   actualCash.value = rawValue ? parseInt(rawValue, 10) : 0
+}
+
+const formatMoneyInput = (value: number) => {
+  if (value <= 0) return ''
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
+const handleShopeeFoodInput = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const rawValue = input.value.replace(/\D/g, '')
+  shopeeFoodAmount.value = rawValue ? parseInt(rawValue, 10) : 0
 }
 
 const shopeeFoodDiscountNominal = computed(() => {
@@ -244,114 +225,44 @@ const pemasukanBersih = computed(() => {
   const posNet = Number(shiftSummary.value?.net_income ?? (kasTotal.value - modalAwal.value))
   return posNet + netShopeeFoodIncome.value
 })
+const totalNonTunai = computed(() => totalPenjualanQris.value + netShopeeFoodIncome.value)
 
 const selisih = computed(() => {
-  if (actualCash.value === 0) return 0
+  if (!actualCashEntered.value) return 0
   return actualCash.value - kasSeharusnya.value
 })
 
-const printShiftSummary = async () => {
-  try {
-    const printers = await printerService.getAllPrinters()
-    const printer = printers.find(p => p.type === 'customer') ?? null
-    if (!printer) return
-    if (printer.connectionType !== 'bluetooth') return
-    if (!printer.devicePath) return
-
-    const result = await printLayoutService.getLayoutByPrinterId(printer.id)
-    const cfg = result.layout as CustomerLayoutConfig
-    const previewContent = result.previewContent
-
-    const { bluetoothPrinter: bt, escpos } = await import('@/services/bluetooth-printer.service')
-
-    const storedWidth = printer.paperSize
-    const paperMm = (printer.connectionType === 'bluetooth' && storedWidth >= 80) ? 58 : storedWidth
-    const dpi = printer.dpi || 203
-    const printableDots = Math.floor((paperMm - 10) * dpi / 25.4)
-    const cols = Math.floor(printableDots / 12)
-    const div = '-'.repeat(cols)
-
-    const clean = (s: string) => String(s ?? '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim()
-    const L = (s: string) => escpos.textLine(s)
-    const fmt = (n: number) => `Rp${n.toLocaleString('id-ID')}`
-    const twoCol = (left: string, right: string) => {
-      const r = clean(right).slice(0, cols - 2)
-      return clean(left).slice(0, cols - r.length - 1).padEnd(cols - r.length - 1) + ' ' + r
+const cashStatus = computed(() => {
+  if (selisih.value === 0) {
+    return {
+      label: 'Uang Tunai Cocok',
+      amount: 0,
+      type: 'match',
+      helper: 'Hasil hitung sama dengan tunai seharusnya',
     }
-
-    const sections = previewContent?.sections || {}
-    const headerArr = Array.isArray(sections.header) ? sections.header : [sections.header || {}]
-    const hd: Record<string, any> = {}
-    headerArr.forEach((f: any) => f && Object.assign(hd, f))
-    const footerSection = sections.footer || {}
-
-    const now = new Date()
-    const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' })
-    const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-
-    const chunks: Uint8Array[] = [escpos.init(), ...escpos.applyFontSize(printer.fontSize), escpos.align('center')]
-
-    // Header store
-    if (cfg.header?.show_logo) {
-      try {
-        const logoDots = Math.floor(printableDots * 2 / 3)
-        const logoModule = await import('@/assets/logo/logo-black.png')
-        chunks.push(await escpos.rasterImage(logoModule.default, logoDots), escpos.lineFeed(1))
-      } catch { /* optional */ }
-    }
-    chunks.push(escpos.bold(true), L(clean(hd.store_name || 'Sederek Kopi')), escpos.bold(false))
-    if (hd.store_address) {
-      const addr = clean(hd.store_address)
-      if (addr.length <= cols) {
-        chunks.push(L(addr))
-      } else {
-        chunks.push(L(addr.slice(0, cols)), L(addr.slice(cols, cols * 2)))
-      }
-    }
-    chunks.push(L(''), escpos.bold(true), L('LAPORAN TUTUP SHIFT'), escpos.bold(false))
-    chunks.push(L(`${dateStr} ${timeStr}`))
-    chunks.push(L(`Kasir: ${clean(authStore.userName || '-')}`))
-    chunks.push(L(div), escpos.align('left'))
-
-    // Ringkasan shift
-    chunks.push(L(twoCol('Modal Awal', fmt(modalAwal.value))))
-    chunks.push(L(div))
-    chunks.push(L(twoCol('Total Penjualan', fmt(totalPenjualan.value))))
-    chunks.push(L(twoCol('  Cash', fmt(totalPenjualanCash.value))))
-    chunks.push(L(twoCol('  QRIS', fmt(totalPenjualanQris.value))))
-    chunks.push(L(div))
-    chunks.push(L(twoCol('Total Belanja', `-${fmt(totalBelanja.value)}`)))
-    chunks.push(L(div))
-    chunks.push(escpos.bold(true), L(twoCol('Pendapatan Bersih', fmt(penjualanPos.value))), escpos.bold(false))
-
-    // Shopee Food
-    if (shopeeFoodAmount.value > 0) {
-      chunks.push(L(div))
-      chunks.push(L(twoCol('Shopee Food Gross', fmt(shopeeFoodAmount.value))))
-      if (shopeeFoodDiscount.value > 0) {
-        chunks.push(L(twoCol(`Diskon ${shopeeFoodDiscount.value}%`, `-${fmt(shopeeFoodDiscountNominal.value)}`)))
-      }
-      chunks.push(L(twoCol('Shopee Food Bersih', fmt(netShopeeFoodIncome.value))))
-    }
-
-    chunks.push(L(div))
-    chunks.push(L(twoCol('Kas Seharusnya', fmt(kasSeharusnya.value))))
-    chunks.push(L(twoCol('Kas Nyata', fmt(actualCash.value))))
-    const sel = selisih.value
-    chunks.push(L(twoCol('Selisih', `${sel >= 0 ? '+' : ''}${fmt(sel)}`)))
-    chunks.push(L(div))
-    chunks.push(escpos.bold(true), L(twoCol('PEMASUKAN BERSIH', fmt(pemasukanBersih.value))), escpos.bold(false))
-
-    // Footer
-    if (cfg.footer?.show_thank_you_message && footerSection.footer_text) {
-      chunks.push(escpos.align('center'), L(''), L(clean(footerSection.footer_text)))
-    }
-
-    chunks.push(escpos.lineFeed(3), escpos.cut())
-    await bt.printTo(printer.devicePath, escpos.concat(...chunks))
-  } catch (e: any) {
-    console.error('[ShiftPrint] Error:', e?.message || e)
   }
+  if (selisih.value < 0) {
+    return {
+      label: 'Uang Kurang',
+      amount: Math.abs(selisih.value),
+      type: 'short',
+      helper: 'Hasil hitung lebih kecil dari tunai seharusnya',
+    }
+  }
+  return {
+    label: 'Uang Lebih',
+    amount: selisih.value,
+    type: 'over',
+    helper: 'Hasil hitung lebih besar dari tunai seharusnya',
+  }
+})
+
+const printShiftSummary = async () => {
+  if (!shiftSummary.value) return { success: false, message: 'Ringkasan shift tidak tersedia' }
+  return printCloseShiftReceipt(shiftSummary.value, {
+    cashierName: authStore.userName || '-',
+    closedAt: shiftSummary.value.shift?.closed_at,
+  })
 }
 
 const handleCloseShift = async () => {
@@ -360,8 +271,8 @@ const handleCloseShift = async () => {
     return
   }
 
-  if (actualCash.value <= 0) {
-    errorMessage.value = 'Kas nyata harus lebih dari 0'
+  if (!actualCashEntered.value || actualCash.value < 0) {
+    errorMessage.value = 'Hasil hitung kasir harus diisi dan tidak boleh negatif'
     return
   }
 
@@ -377,14 +288,19 @@ const handleCloseShift = async () => {
       shopee_food_net: netShopeeFoodIncome.value,
     })
 
-
-    successMessage.value = 'Shift berhasil ditutup'
+    // Print from the authoritative close response, not the earlier preview summary.
+    shiftSummary.value = result
 
     // Auto-print shift summary via customer receipt printer
-    await printShiftSummary()
+    const printResult = await printShiftSummary()
+    successMessage.value = printResult.success
+      ? 'Shift berhasil ditutup dan struk tercetak'
+      : `Shift berhasil ditutup, tetapi struk tidak tercetak: ${printResult.message}`
 
     // Reset form
     actualCash.value = 0
+    actualCashEntered.value = false
+    shopeeFoodAmount.value = 0
 
     // Close modal after 1.5 seconds and redirect
     setTimeout(() => {
@@ -406,10 +322,18 @@ watch(
     if (newIsOpen) {
       try {
         if (!shiftStore.currentShift?.id) return
+        actualCash.value = 0
+        actualCashEntered.value = false
+        shopeeFoodAmount.value = 0
+        errorMessage.value = ''
+        successMessage.value = ''
+        shiftSummary.value = null
+        summaryLoadFailed.value = false
         isLoadingSummary.value = true
         shiftSummary.value = await shiftApi.getShiftSummary(shiftStore.currentShift.id)
       } catch (error) {
-
+        summaryLoadFailed.value = true
+        errorMessage.value = 'Gagal memuat ringkasan shift. Tutup dan buka kembali form untuk mencoba lagi.'
       } finally {
         isLoadingSummary.value = false
       }
@@ -834,5 +758,214 @@ watch(
     padding: 0.6rem 1rem;
     font-size: 0.75rem;
   }
+}
+
+/* Final close-shift layout */
+.modal-content {
+  max-width: 680px;
+  background: var(--color-surface-0);
+  border: 1px solid var(--color-border-light);
+}
+
+.modal-header {
+  padding: 16px 20px;
+  border-bottom-color: var(--color-border-light);
+  background: var(--color-surface-0);
+
+  p {
+    margin: 3px 0 0;
+    color: var(--color-text-tertiary);
+    font-size: 11px;
+  }
+}
+
+.btn-close {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-1);
+
+  &:hover {
+    border-color: var(--brand-border-primary);
+    background: var(--brand-primary-pale);
+    color: var(--color-primary);
+  }
+}
+
+.modal-body {
+  gap: 18px;
+  padding: 18px 20px 24px;
+  background: var(--color-surface-1);
+}
+
+.summary-section,
+.actual-section {
+  gap: 8px;
+}
+
+.section-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.summary-card {
+  gap: 9px;
+  padding: 16px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 14px;
+  background: var(--color-surface-0);
+  box-shadow: var(--shadow-1);
+}
+
+.group-title {
+  margin-top: 7px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-light);
+  color: var(--color-primary-dark);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.group-title.first {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.summary-row .label,
+.summary-sub .label {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.summary-row .value,
+.summary-sub .value {
+  flex-shrink: 0;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.detail-row {
+  padding-left: 10px;
+}
+
+.summary-divider {
+  background: var(--color-border-light);
+}
+
+.money-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 2px;
+
+  > span {
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  input {
+    width: 100%;
+    min-height: 48px;
+    box-sizing: border-box;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 11px;
+    background: var(--color-surface-1);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-body);
+    font-size: 15px;
+    font-weight: 700;
+
+    &:focus {
+      outline: 2px solid var(--brand-overlay-primary-20);
+      border-color: var(--color-primary);
+      background: var(--color-surface-0);
+    }
+  }
+}
+
+.calculation-hint {
+  margin: -3px 0 2px;
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.grand-total,
+.subtotal-row {
+  .label,
+  .value {
+    color: var(--color-primary-dark);
+    font-size: 14px;
+    font-weight: 900;
+  }
+}
+
+.cash-status {
+  margin-top: 2px;
+  padding: 11px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+
+  .calculation-hint { margin: 3px 0 0; }
+}
+
+.cash-status--match {
+  border-color: #86efac;
+  background: #f0fdf4;
+
+  .label, .value { color: #15803d; }
+}
+
+.cash-status--short {
+  border-color: #fecaca;
+  background: #fef2f2;
+
+  .label, .value { color: #b91c1c; }
+}
+
+.cash-status--over {
+  border-color: #fde68a;
+  background: #fffbeb;
+
+  .label, .value { color: #92400e; }
+}
+
+.modal-footer {
+  padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+  border-top-color: var(--color-border-light);
+  background: var(--color-surface-0);
+}
+
+.btn-submit {
+  min-height: 44px;
+  background: var(--brand-gradient-primary);
+  box-shadow: var(--brand-shadow-primary);
+}
+
+.btn-cancel {
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+}
+
+@media (max-width: 600px) {
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal-content { max-width: 100%; max-height: 95dvh; border-radius: 20px 20px 0 0; }
+  .modal-header, .modal-body, .modal-footer { padding-left: 14px; padding-right: 14px; }
+  .summary-card { padding: 14px; }
+  .summary-row { gap: 10px; }
+  .grand-total .label { max-width: 55%; }
 }
 </style>
