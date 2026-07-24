@@ -13,8 +13,9 @@ import { heldOrderApi } from '@/services/api/heldOrder.api'
 import type { Product, Discount, Customer, PaymentMethod, SplitPayment, Transaction, TransactionItem, TransactionQuote } from '@/types'
 import { printerService } from '@/services/printer.service'
 import { printLayoutService } from '@/services/printerlayout.service'
-import type { CustomerLayoutConfig, BaristaLayoutConfig, KitchenLayoutConfig } from '@/services/printerlayout.service'
+import type { BaristaLayoutConfig, KitchenLayoutConfig } from '@/services/printerlayout.service'
 import { printBaristaTicket, printKitchenTicket } from '@/services/ticket-print.service'
+import { printCustomerReceipt as printCustomerReceiptService } from '@/services/customer-receipt.service'
 
 import ProductListSection from './components/ProductListSection.vue'
 import TransactionSidebar from '@/components/domain/TransactionSidebar.vue'
@@ -450,168 +451,10 @@ const printBaristaKitchenTickets = async (trx: Transaction) => {
 
 const printCustomerReceipt = async (trx: Transaction) => {
   try {
-    const printers = await printerService.getAllPrinters()
-    const printer = printers.find(p => p.type === 'customer') ?? null
-    if (!printer) {
-      console.warn('[AutoPrint] No customer printer configured')
-      return
-    }
-    if (printer.connectionType !== 'bluetooth') {
-      console.warn('[AutoPrint] Printer not BT, connectionType:', printer.connectionType)
-      return
-    }
-    if (!printer.devicePath) {
-      showError('Auto-print: Bluetooth printer belum dipilih di pengaturan printer')
-      return
-    }
-
-    const result = await printLayoutService.getLayoutByPrinterId(printer.id)
-    const cfg = result.layout as CustomerLayoutConfig
-    const previewContent = result.previewContent
-
-    const { bluetoothPrinter: bt, escpos } = await import('@/services/bluetooth-printer.service')
-
-    const storedWidth = printer.paperSize
-    const paperMm = (printer.connectionType === 'bluetooth' && storedWidth >= 80) ? 58 : storedWidth
-    const dpi = printer.dpi || 203
-    const printableDots = Math.floor((paperMm - 10) * dpi / 25.4)
-    const cols = Math.floor(printableDots / 12)
-    const div = '-'.repeat(cols)
-
-    const clean = (s: string) => String(s ?? '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').trim()
-    const L = (s: string) => escpos.textLine(s)
-    const fmt = (n: any) => {
-      const val = typeof n === 'number' ? n : parseInt(String(n ?? '0').replace(/\D/g, '')) || 0
-      return `Rp${val.toLocaleString('id-ID')}`
-    }
-    const wrap = (text: string): string[] => {
-      const t = clean(text)
-      if (t.length <= cols) return [t]
-      const words = t.split(' ')
-      const lines: string[] = []
-      let cur = ''
-      for (const w of words) {
-        const next = cur ? `${cur} ${w}` : w
-        if (next.length <= cols) { cur = next }
-        else { if (cur) lines.push(cur); cur = w.slice(0, cols) }
-      }
-      if (cur) lines.push(cur)
-      return lines
-    }
-    const twoCol = (left: string, right: string) => {
-      const r = clean(right).slice(0, cols - 2)
-      return clean(left).slice(0, cols - r.length - 1).padEnd(cols - r.length - 1) + ' ' + r
-    }
-    const threeCol = (name: string, qty: string, price: string) => {
-      const qW = 4; const pW = 11
-      const nW = cols - qW - pW - 2
-      return clean(name).slice(0, nW).padEnd(nW) + ' ' +
-             clean(qty).slice(0, qW).padStart(qW) + ' ' +
-             clean(price).slice(0, pW).padStart(pW)
-    }
-
-    // Store info from template's preview_content
-    const sections = previewContent?.sections || {}
-    const headerArr = Array.isArray(sections.header) ? sections.header : [sections.header || {}]
-    const hd: Record<string, any> = {}
-    headerArr.forEach((f: any) => f && Object.assign(hd, f))
-    const footerSection = sections.footer || {}
-
-    // Real data
-    const paidAt = trx.paidAt ? new Date(trx.paidAt) : new Date(trx.createdAt)
-    const dateStr = paidAt.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' })
-    const timeStr = paidAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-    const custName = trx.customerName || customers.value.find(c => c.id === trx.customerId)?.name || 'Walk In'
-    const cashierName = authStore.userName
-
-    const chunks: Uint8Array[] = [escpos.init(), ...escpos.applyFontSize(printer.fontSize), escpos.align('center')]
-
-    // ── Header ──
-    if (cfg.header.show_logo) {
-      try {
-        const logoDots = Math.floor(printableDots * 2 / 3)
-        const logoModule = await import('@/assets/logo/logo-black.png')
-        chunks.push(await escpos.rasterImage(logoModule.default, logoDots), escpos.lineFeed(1))
-      } catch { /* logo optional */ }
-    }
-    if (cfg.header.show_store_name) {
-      chunks.push(escpos.bold(true), L(clean(hd.store_name || 'Sederek Kopi')), escpos.bold(false))
-    }
-    if (cfg.header.show_store_address && hd.store_address) {
-      for (const line of wrap(hd.store_address)) chunks.push(L(line))
-    }
-    if (cfg.header.show_store_phone && hd.store_phone) chunks.push(L(clean(hd.store_phone)))
-    if (cfg.header.show_store_slogan && hd.store_slogan) chunks.push(L(clean(hd.store_slogan)))
-
-    chunks.push(L(div), escpos.align('left'))
-    chunks.push(L(clean(trx.transactionNumber)))
-    if (cfg.header.show_transaction_date) chunks.push(L(`${dateStr} ${timeStr}`))
-    if (cfg.header.show_cashier_name) chunks.push(L(`Kasir: ${clean(cashierName)}`))
-    if (cfg.header.show_customer_name) chunks.push(L(`Tamu: ${clean(custName)}`))
-    chunks.push(L(div))
-
-    // ── Items ──
-    if (cfg.item.show_item_name && cfg.item.show_item_quantity && cfg.item.show_item_price) {
-      chunks.push(escpos.bold(true), L(threeCol('Item', 'Qty', 'Subtotal')), escpos.bold(false))
-    }
-    for (const item of trx.items) {
-      const rawName = cfg.item.item_name_format === 'short'
-        ? item.productName.slice(0, 16)
-        : item.productName
-      const displaySubtotal = item.subtotal
-      chunks.push(L(threeCol(
-        cfg.item.show_item_name ? clean(rawName) : '',
-        cfg.item.show_item_quantity ? String(item.quantity) : '',
-        cfg.item.show_item_price ? fmt(displaySubtotal) : '',
-      )))
-      // Baris member discount per item — dikontrol dari layout config
-      if (cfg.item.show_item_price && cfg.item.show_member_discount && item.is_member_price) {
-        const saving = item.memberSaving ?? Math.max(0, (item.originalPrice - (item.memberPrice ?? item.price)) * item.quantity)
-        if (saving > 0) {
-          chunks.push(L(twoCol('  * Hrg normal', fmt(item.originalPrice * item.quantity))))
-          chunks.push(L(twoCol('  * Hemat member', `-${fmt(saving)}`)))
-        }
-      }
-      if (cfg.item.show_item_addons && item.addOns?.length) {
-        for (const a of item.addOns) {
-          const ap = a.price > 0 ? fmt(a.price * a.quantity) : ''
-          chunks.push(L(ap ? twoCol(`  + ${clean(a.addOnName)}`, ap) : `  + ${clean(a.addOnName)}`))
-        }
-      }
-      if (cfg.item.show_item_notes && item.notes) {
-        chunks.push(L(`  > ${clean(item.notes)}`))
-      }
-    }
-    chunks.push(L(div))
-
-    // ── Summary ──
-    if (cfg.summary.show_subtotal) chunks.push(L(twoCol('Subtotal', fmt(trx.subtotal))))
-    if (cfg.summary.show_member_savings) {
-      const memberDisc = trx.totalMemberSavings || trx.items.reduce((s, i) =>
-        s + (i.memberSaving ?? (i.is_member_price ? Math.max(0, (i.originalPrice - (i.memberPrice ?? i.price)) * i.quantity) : 0)), 0)
-      if (memberDisc > 0) chunks.push(L(twoCol('Disc. Member', `-${fmt(memberDisc)}`)))
-    }
-    if (cfg.summary.show_discount) {
-      const itemDisc = trx.itemDiscounts || 0
-      const globalDisc = trx.globalDiscountAmount || 0
-      if (itemDisc > 0) chunks.push(L(twoCol('Disc. Item', `-${fmt(itemDisc)}`)))
-      if (globalDisc > 0) chunks.push(L(twoCol('Disc. Global', `-${fmt(globalDisc)}`)))
-    }
-    if (cfg.summary.show_payment_method) {
-      chunks.push(L(twoCol('Bayar', clean(trx.paymentMethod || '-'))))
-    }
-    chunks.push(L(div))
-    if (cfg.summary.show_total) {
-      chunks.push(escpos.bold(true), L(twoCol('TOTAL', fmt(trx.total))), escpos.bold(false))
-    }
-
-    // ── Footer ──
-    if (cfg.footer.show_thank_you_message && footerSection.footer_text) {
-      chunks.push(escpos.align('center'), L(''), L(clean(footerSection.footer_text)))
-    }
-
-    chunks.push(escpos.lineFeed(3), escpos.cut())
-    await bt.printTo(printer.devicePath, escpos.concat(...chunks))
+    await printCustomerReceiptService(trx, {
+      cashierNameFallback: authStore.userName,
+      customerNameFallback: customers.value.find(customer => customer.id === trx.customerId)?.name,
+    })
   } catch (e: any) {
     console.error('[AutoPrint] Customer receipt print error:', e?.message || e)
     showError(`Auto-print gagal: ${e?.message || 'Cek koneksi Bluetooth printer'}`)

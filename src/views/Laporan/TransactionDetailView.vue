@@ -5,6 +5,7 @@ import { useCustomerStore } from '@/stores/customer'
 import { useProductStore } from '@/stores/product'
 import { useToast } from '@/composables/useToast'
 import { transactionApi } from '@/services/api/transaction.api'
+import { printCustomerReceipt } from '@/services/customer-receipt.service'
 import { formatRupiah, formatDateTimeJakarta } from '@/utils/formatters'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import type { Transaction } from '@/types'
@@ -20,10 +21,11 @@ const route = useRoute()
 const router = useRouter()
 const customerStore = useCustomerStore()
 const productStore = useProductStore()
-const { error: showError } = useToast()
+const { success: showSuccess, error: showError } = useToast()
 
 const transaction = ref<Transaction | null>(null)
 const isLoading = ref(false)
+const isPrinting = ref(false)
 
 useSwipeNavigation({ onSwipeLeft: () => router.back() })
 
@@ -64,6 +66,21 @@ const getPaymentMethodClass = (method: string) => {
     debit: 'pm-debit', credit: 'pm-credit', split: 'pm-split',
   }
   return map[method?.toLowerCase()] || 'pm-cash'
+}
+
+const handlePrintReceipt = async () => {
+  if (!transaction.value || isPrinting.value) return
+  try {
+    isPrinting.value = true
+    await printCustomerReceipt(transaction.value, {
+      customerNameFallback: getCustomerName(transaction.value.customerId),
+    })
+    showSuccess('Struk berhasil dicetak ulang')
+  } catch (error: any) {
+    showError(error?.message || 'Gagal mencetak ulang struk')
+  } finally {
+    isPrinting.value = false
+  }
 }
 
 const getStatusLabel = (status: string): string => {
@@ -263,14 +280,25 @@ const handleCancelTransaction = async () => {
         <h1 class="page-title">Detail Transaksi</h1>
         <span v-if="transaction" class="page-subtitle">{{ transaction.transactionNumber }}</span>
       </div>
-      <BaseButton
-        v-if="canEdit"
-        variant="secondary"
-        size="sm"
-        @click="openEditModal"
-      >
-        <AppIcon name="edit" :size="13" /> Edit
-      </BaseButton>
+      <div v-if="transaction" class="header-actions">
+        <BaseButton
+          variant="primary"
+          size="sm"
+          :loading="isPrinting"
+          :disabled="isPrinting"
+          @click="handlePrintReceipt"
+        >
+          <AppIcon name="printer" :size="13" /> Cetak Ulang
+        </BaseButton>
+        <BaseButton
+          v-if="canEdit"
+          variant="secondary"
+          size="sm"
+          @click="openEditModal"
+        >
+          <AppIcon name="edit" :size="13" /> Edit
+        </BaseButton>
+      </div>
       <div v-else class="header-spacer"></div>
     </div>
 
@@ -626,6 +654,12 @@ const handleCancelTransaction = async () => {
 }
 
 .header-spacer { width: 64px; }
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
 
 /* Container */
 .container {
